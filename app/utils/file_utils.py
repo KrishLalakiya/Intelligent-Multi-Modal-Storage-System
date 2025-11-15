@@ -16,8 +16,9 @@ JSON_DIR = STORAGE_BASE_DIR / "json"
 TEMP_DIR = STORAGE_BASE_DIR / "temp"
 
 # --- Allowed Extensions ---
-ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "bmp", "webp"}
-ALLOWED_VIDEO_EXTENSIONS = {"mp4", "mov", "avi", "mkv", "wmv"}
+ALLOWED_IMAGE_EXTENSIONS = { "jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "tif","svg", "heic", "heif", "ico", "raw", "cr2", "nef", "orf", "sr2","avif"}
+ALLOWED_VIDEO_EXTENSIONS = {"mp4", "mov", "avi", "mkv", "wmv", "flv", "webm", "mpeg", 
+"mpg", "3gp", "m4v", "vob"}
 
 
 # --- HELPER 1: Local Storage Logic ---
