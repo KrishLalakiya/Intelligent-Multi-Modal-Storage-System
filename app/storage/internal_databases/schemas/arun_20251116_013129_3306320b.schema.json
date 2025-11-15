@@ -1,0 +1,7 @@
+{
+  "original_filename": "arun.json",
+  "storage_type": "nosql",
+  "columns": [],
+  "reason": "Contains nested dictionary or list (depth: 1), ideal for document storage.",
+  "analyzed_at": "2025-11-16T01:31:29.261680"
+}

@@ -1,0 +1,18 @@
+{
+  "data": [
+    {
+      "project_id":101,
+      "name": "Hackathon Storage System",
+      "lead": "Arun",
+      "deadline": "2025-11-20",
+      "budget": 50000
+    },
+    {
+      "project": 102,
+      "name": "Face Recognition Pipeline",
+      "lead": "Meera",
+      "deadline": "2025-12-05",
+      "budget": 75000
+    }
+  ]
+}

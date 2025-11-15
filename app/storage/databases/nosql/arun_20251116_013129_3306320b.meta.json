@@ -1,0 +1,10 @@
+{
+  "original_filename": "arun.json",
+  "analysis": {
+    "recommendation": "nosql",
+    "reason": "Contains nested dictionary or list (depth: 1), ideal for document storage.",
+    "nesting_level": 1
+  },
+  "analyzed_at": "2025-11-16T01:31:29.261042",
+  "file_size": 345
+}

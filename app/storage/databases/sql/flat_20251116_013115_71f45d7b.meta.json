@@ -1,0 +1,13 @@
+{
+  "original_filename": "flat.json",
+  "analysis": {
+    "recommendation": "sql",
+    "reason": "Flat structure, ideal for relational querying.",
+    "keys": [
+      "item_name",
+      "item_value"
+    ]
+  },
+  "analyzed_at": "2025-11-16T01:31:15.335342",
+  "file_size": 54
+}
