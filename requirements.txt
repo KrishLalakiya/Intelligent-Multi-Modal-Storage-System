@@ -3,4 +3,4 @@ uvicorn[standard]
 python-multipart
 cloudinary
 werkzeug
-cloudinary python-dotenv
+cloudinary #python-dotenv
