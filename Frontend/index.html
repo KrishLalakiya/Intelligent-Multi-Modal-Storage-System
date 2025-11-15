@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FileVibe | Semantic File Search</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="page page1" id="page1">
+            <div class="bg-image-blur" style="background-image: url('image3.avif');"></div> 
+            
+            <h1 class="hero-logo">File<span>Vibe</span></h1>
+            <p class="hero-text">Intelligent Multi-Modal Storage.
+                <br>
+                <span> "Let the vibes guide your search."</span>
+               </p>
+            <button class="btn btn-hero" id="btn-start">
+                <i class="fas fa-rocket"></i> Launch FileVibe
+            </button>
+        </div>
+
+        <div class="page page2" id="page2">
+            <header class="header">
+                <div class="logo" id="btn-home">File<span>Vibe</span></div>
+                <div class="search-box">
+                    <input type="text" class="search-input" placeholder="Search by meaning...">
+                    <button class="btn-search">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div class="header-btns">
+                    <button class="btn btn-action" id="btn-theme">
+                        <i class="fas fa-moon"></i> Theme
+                    </button>
+                    <button class="btn btn-upload" id="btn-upload">
+                        <i class="fas fa-cloud-upload-alt"></i> Upload
+                    </button>
+                </div>
+            </header>
+
+            <div class="content">
+                <aside class="sidebar">
+                    <h3 class="sidebar-title">
+                        <i class="fas fa-sliders-h"></i> Filters
+                    </h3>
+                        <div class="filters">
+                        <div class="filter-group">
+                            <label class="label-filter"></label> <select class="select-filter" id="select-type">
+                                <option value="all">All Types</option>
+                                <option value="image">Images</option>
+                                <option value="video">Videos</option>
+                                <option value="json">JSON</option>
+                                <option value="text">Text</option>
+                            </select>
+                        </div>
+                      
+                    </div>
+                    
+                    <h3 class="sidebar-title sidebar-cat-title">
+                        <i class="fas fa-folder"></i> Categories
+                    </h3>
+                    <ul class="list-cat">
+                        <li class="item-cat active" data-category="all">
+                            <span>All Files</span>
+                            <span class="cat-count">24</span>
+                        </li>
+                        <li class="item-cat" data-category="Images">
+                            <span>Images</span>
+                            <span class="cat-count">12</span>
+                        </li>
+                        <li class="item-cat" data-category="Videos">
+                            <span>Videos</span>
+                            <span class="cat-count">8</span>
+                        </li>
+                        <li class="item-cat" data-category="SQL">
+                            <span>SQL</span>
+                            <span class="cat-count">4</span>
+                        </li>
+                        <li class="item-cat" data-category="NoSQL">
+                            <span>NoSQL</span>
+                            <span class="cat-count">0</span>
+                        </li>
+                    </ul>
+                </aside>
+
+                <section class="section-files">
+                    <div class="section-header">
+                        <h2 class="section-title">All Files</h2>
+                        <div class="view-btns">
+                            <button class="btn-view active" data-view="grid">
+                                <i class="fas fa-th"></i>
+                            </button>
+                            <button class="btn-view" data-view="list">
+                                <i class="fas fa-list"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid-files" id="grid-files">
+                        </div>
+                </section>
+            </div>
+
+            <footer class="footer">
+                <div class="status">
+                    <div class="status-dot"></div>
+                    <span>Connected to backend</span>
+                </div>
+                <div class="footer-text">
+                    FileVibe &copy; 2023 | AI-Powered Semantic Search
+                </div>
+            </footer>
+        </div>
+
+        <div class="modal" id="modal-upload">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Upload Files</h3>
+                    <button class="btn-close" id="btn-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="upload-area" id="drop-area">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <p class="upload-text">Drag & drop files here or click to browse</p>
+                    <p class="upload-hint">Supports: JSON, JPG, PNG, MP4</p>
+                    <input type="file" class="input-file" id="input-file" multiple>
+                </div>
+                <div class="modal-btns">
+                    <button class="btn btn-cancel" id="btn-cancel">Cancel</button>
+                    <button class="btn btn-submit">Upload Files</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
