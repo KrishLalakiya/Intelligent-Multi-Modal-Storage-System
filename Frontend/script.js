@@ -44,6 +44,7 @@ let currentFilters = {
     category: 'all'
 };
 let currentView = 'grid'; // 'grid' or 'list'
+let allFiles = []; // Store all files for client-side filtering
 
 // ===================================
 //  API SERVICE LAYER
@@ -68,22 +69,17 @@ async function checkBackendHealth() {
 async function fetchFiles() {
     showLoadingState(true, 'Loading files...');
     try {
-        const params = new URLSearchParams();
-        if (currentFilters.type !== 'all') {
-            params.append('type', currentFilters.type);
-        }
-        if (currentFilters.category !== 'all') {
-            params.append('category', currentFilters.category);
-        }
-
-        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.GET_FILES}?${params}`);
+        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.GET_FILES}`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const files = await response.json();
+        allFiles = await response.json();
         
-        renderFiles(files);
-        updateCategoryCounts(files);
+        // Apply client-side filtering
+        const filteredFiles = filterFiles(allFiles);
+        
+        renderFiles(filteredFiles);
+        updateCategoryCounts(allFiles); // Use all files for counts
         updateConnectionStatus(true);
 
     } catch (error) {
@@ -93,6 +89,25 @@ async function fetchFiles() {
     } finally {
         showLoadingState(false);
     }
+}
+
+/**
+ * Filters files based on current type and category filters
+ * @param {Array} files - Array of all files
+ * @returns {Array} Filtered files
+ */
+function filterFiles(files) {
+    return files.filter(file => {
+        // Type filter (from dropdown)
+        const typeMatch = currentFilters.type === 'all' || 
+                         file.type === currentFilters.type;
+        
+        // Category filter (from sidebar)
+        const categoryMatch = currentFilters.category === 'all' || 
+                            file.category === currentFilters.category;
+        
+        return typeMatch && categoryMatch;
+    });
 }
 
 /**
@@ -229,10 +244,13 @@ function renderFiles(files) {
 
     if (files.length === 0) {
         filesGrid.innerHTML = `
-            <div class="empty-state" style="grid-column: 1 / -1;">
-                <i class="fas fa-folder-open"></i>
+            <div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                <i class="fas fa-folder-open" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
                 <h3>No files found</h3>
                 <p>Try adjusting your filters or upload new files.</p>
+                <button class="btn btn-upload" onclick="toggleModal(true)" style="margin-top: 1rem;">
+                    <i class="fas fa-cloud-upload-alt"></i> Upload Files
+                </button>
             </div>
         `;
         return;
@@ -491,7 +509,7 @@ function initApp() {
         showSuccess(`${e.dataTransfer.files.length} file(s) ready to upload.`);
     }, false);
 
-    // Filters
+    // Type filter
     typeSelect.addEventListener('change', () => {
         currentFilters.type = typeSelect.value;
         fetchFiles();
@@ -501,11 +519,13 @@ function initApp() {
     categoryList.addEventListener('click', e => {
         const item = e.target.closest('.item-cat');
         if (item) {
-            categoryList.querySelector('.item-cat.active').classList.remove('active');
+            categoryList.querySelectorAll('.item-cat').forEach(cat => {
+                cat.classList.remove('active');
+            });
             item.classList.add('active');
             currentFilters.category = item.dataset.category;
-            sectionTitle.textContent = `${item.querySelector('span').textContent} Files`;
-            fetchFiles();
+            sectionTitle.textContent = `${item.querySelector('span').textContent}`;
+            fetchFiles(); // This will now apply the category filter
         }
     });
 
