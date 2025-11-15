@@ -1,16 +1,12 @@
-# app/routers/json_routes.py
-
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 import aiofiles
 from pathlib import Path
 import asyncio
-from typing import List, Dict
+from typing import List, Dict, Any
 import json
 
 from app.utils.json_analyzer import JSONAnalyzer
-
 from fastapi.responses import FileResponse
-
 
 router = APIRouter(prefix="/json", tags=["JSON Files"])
 json_analyzer = JSONAnalyzer()
@@ -57,11 +53,13 @@ async def upload_json(
             
             # Add background task for additional processing
             if not result.get("duplicate"):
-                background_tasks.add_task(process_additional_metadata, str(temp_file), analysis)
+                # We must pass the *final* file path if it's local, or just use temp for analysis
+                # Since 'store_json_file' now deletes the temp_file, we'll pass the result dict
+                background_tasks.add_task(process_additional_metadata, result, analysis)
             
             return response
         else:
-            raise HTTPException(500, result["error"])
+            raise HTTPException(500, result.get("error", "Unknown processing error"))
             
     except Exception as e:
         # Cleanup on error
@@ -106,20 +104,25 @@ async def bulk_upload_json(
 
 async def process_single_file(file: UploadFile) -> Dict:
     """Process a single file asynchronously"""
+    temp_file = None
     try:
         content = await file.read()
         temp_dir = Path("app/storage/temp")
+        temp_dir.mkdir(exist_ok=True)
         temp_file = temp_dir / f"bulk_{file.filename}"
         
         async with aiofiles.open(temp_file, 'wb') as f:
             await f.write(content)
         
         analysis = json_analyzer.analyze_json_file(str(temp_file))
+        # 'store_json_file' will delete the temp_file
         result = json_analyzer.store_json_file(str(temp_file), file.filename, analysis)
         
         return result
         
     except Exception as e:
+        if temp_file and temp_file.exists():
+             temp_file.unlink() # Ensure cleanup on error
         return {"success": False, "error": str(e), "filename": file.filename}
 
 @router.get("/files")
@@ -129,7 +132,8 @@ async def list_json_files(
     offset: int = 0
 ):
     """
-    Enhanced file listing with filtering and pagination
+    Enhanced file listing with filtering and pagination.
+    This now reads the 'online_url' from metadata for previews.
     """
     try:
         sql_files = []
@@ -139,30 +143,40 @@ async def list_json_files(
         sql_path = Path("app/storage/databases/sql")
         if sql_path.exists():
             for file in sql_path.glob("*.json"):
-                if file.name.endswith('.meta.json'):
+                if file.name.endswith('.meta.json') or file.name.endswith('.schema.json'):
                     continue
                     
                 metadata = await get_file_metadata(file)
+                local_url = f"/files/json/sql/{file.name}"
+                online_url = metadata.get("online_url")
+                
                 sql_files.append({
                     "filename": file.name,
                     "size": file.stat().st_size,
                     "modified": file.stat().st_mtime,
-                    "metadata": metadata
+                    "metadata": metadata,
+                    "local_url": local_url,
+                    "online_url": online_url 
                 })
         
         # Get NoSQL files with metadata
         nosql_path = Path("app/storage/databases/nosql")
         if nosql_path.exists():
             for file in nosql_path.glob("*.json"):
-                if file.name.endswith('.meta.json'):
+                if file.name.endswith('.meta.json') or file.name.endswith('.schema.json'):
                     continue
                     
                 metadata = await get_file_metadata(file)
+                local_url = f"/files/json/nosql/{file.name}"
+                online_url = metadata.get("online_url")
+
                 nosql_files.append({
                     "filename": file.name,
                     "size": file.stat().st_size,
                     "modified": file.stat().st_mtime,
-                    "metadata": metadata
+                    "metadata": metadata,
+                    "local_url": local_url,
+                    "online_url": online_url
                 })
         
         # Apply filtering
@@ -199,16 +213,20 @@ async def get_file_metadata(file_path: Path) -> Dict:
     """Get metadata for a file"""
     metadata_path = file_path.with_suffix('.meta.json')
     if metadata_path.exists():
-        async with aiofiles.open(metadata_path, 'r') as f:
-            content = await f.read()
-            return json.loads(content)
+        try:
+            async with aiofiles.open(metadata_path, 'r') as f:
+                content = await f.read()
+                return json.loads(content)
+        except Exception as e:
+            print(f"Error reading metadata {metadata_path}: {e}")
+            return {}
     return {}
 
-def process_additional_metadata(file_path: str, analysis: Dict):
+def process_additional_metadata(result: Dict, analysis: Dict):
     """Background task for additional processing"""
     # This runs in background - doesn't block the response
     try:
         # Could generate previews, create indexes, etc.
-        print(f"Background processing completed for {file_path}")
+        print(f"Background processing completed for {result.get('stored_name')}")
     except Exception as e:
         print(f"Background processing failed: {e}")

@@ -129,19 +129,26 @@ async function uploadFiles() {
             }
             
             const result = await response.json();
-            const fileInfo = result.saved_file; 
-            
-            let mainCategory = '';
-            let fileExt = '';
-            let subCategory = ''; // For JSON
-
-            if (fileInfo.json_type) { 
-                fileExt = 'json';
-                mainCategory = 'JSON';
-                subCategory = fileInfo.json_type.toUpperCase(); // 'SQL' or 'NOSQL'
-            } else { 
-                mainCategory = fileInfo.category; // e.g., 'Images'
-                fileExt = fileInfo.extension;   // e.g., 'jpg'
+            let fileInfo;
+            if (result.saved_file) {
+                // It's a MEDIA file
+                fileInfo = result.saved_file;
+            } else if (result.details) {
+                // It's a JSON file
+                fileInfo = {
+                    filename: result.details.original_name,
+                    category: result.details.storage_type, // 'SQL' or 'NOSQL'
+                    extension: 'json',
+                    json_type: result.details.storage_type 
+                };
+            } else {
+                // This might be a ZIP file or an error
+                if (result.message && result.message.includes("ZIP")) {
+                     successMessages.push(result.message);
+                } else {
+                    throw new Error(`Unknown response from server for ${file.name}`);
+                }
+                continue; // Skip to the next file
             }
 
             successMessages.push(`Uploaded ${file.name} (Type: ${fileExt.toUpperCase()})`);
@@ -181,43 +188,66 @@ async function uploadFiles() {
 // ===================================
 //  UI RENDERING
 // ===================================
+// In script.js
 
 function filterAndRenderFiles() {
     let filteredFiles = allFilesCache;
     let title = "All Files";
 
-    // 1. Filter by main category OR type
-    if (currentFilters.category === 'Images' || currentFilters.category === 'Videos' || currentFilters.category === 'JSON') {
-        filteredFiles = filteredFiles.filter(f => f.type.toLowerCase() === currentFilters.category.toLowerCase());
-        title = `${currentFilters.category} Files`;
-    } else if (currentFilters.category === 'SQL' || currentFilters.category === 'NoSQL') {
-        filteredFiles = filteredFiles.filter(f => f.category === currentFilters.category);
-        title = `${currentFilters.category} Files`;
+    const type = typeSelect.value; // 'image', 'video', 'json', 'all'
+    const cat = currentFilters.category; // 'Images', 'Videos', 'SQL', 'all'
+    const ext = currentFilters.extension; // 'jpg', 'png', 'all'
+
+    // 1. Filter by Type Dropdown (e.g., 'image')
+    if (type !== 'all') {
+        filteredFiles = filteredFiles.filter(f => f.type === type);
     }
     
-    // 2. Filter by specific extension (if one is selected)
-    if (currentFilters.extension !== 'all') {
-        if (currentFilters.category === 'SQL' || currentFilters.category === 'NoSQL') {
-            // For SQL/NoSQL, extension is 'json', but we filter by main category
-            filteredFiles = filteredFiles.filter(f => f.category === currentFilters.category);
-            title = `${currentFilters.category} Files`;
+    // 2. Filter by Category Sidebar (e.g., 'Images', 'SQL')
+    if (cat !== 'all') {
+        if (cat === 'Images' || cat === 'Videos' || cat === 'JSON') {
+            // These are main categories
+            // 'JSON' is special, it contains 'SQL' and 'NoSQL'
+            if (cat === 'JSON') {
+                 filteredFiles = filteredFiles.filter(f => f.type === 'json');
+            } else {
+                 filteredFiles = filteredFiles.filter(f => f.category === cat);
+            }
+        } else if (cat === 'SQL' || cat === 'NoSQL') {
+            // These are sub-categories of JSON
+            filteredFiles = filteredFiles.filter(f => f.category === cat);
+        }
+    }
+
+    // 3. Filter by Extension Sidebar (e.g., 'jpg', 'json')
+    if (ext !== 'all') {
+        if (cat === 'SQL' || cat === 'NoSQL') {
+             // 'SQL' or 'NoSQL' was clicked, which is a sub-cat
+             filteredFiles = filteredFiles.filter(f => f.category === cat && f.extension === 'json');
         } else {
-            // For Images/Videos, filter by extension
-            filteredFiles = filteredFiles.filter(f => f.extension === currentFilters.extension);
-            title = `${currentFilters.category} / ${currentFilters.extension.toUpperCase()}`;
+             // 'jpg', 'png', etc. was clicked
+             filteredFiles = filteredFiles.filter(f => f.extension === ext);
         }
     }
     
-    // 3. Filter by Type dropdown (if not 'all')
-    const type = typeSelect.value;
-    if (type !== 'all') {
-         filteredFiles = filteredFiles.filter(f => f.type === type);
+    // --- Set Title ---
+    if (ext !== 'all') {
+        if(cat === 'SQL' || cat === 'NoSQL') {
+            title = `${cat} Files`;
+        } else {
+            title = `${cat} / ${ext.toUpperCase()}`;
+        }
+    } else if (cat !== 'all') {
+        title = `${cat} Files`;
+    } else if (type !== 'all') {
+        title = `${type.charAt(0).toUpperCase() + type.slice(1)} Files`;
+    } else {
+        title = "All Files";
     }
 
     sectionTitle.textContent = title;
     renderFiles(filteredFiles);
 }
-
 /**
  * NEW: Simple function to update counts on the static list
  */
@@ -297,7 +327,8 @@ function createFileCard(file) {
     fileCard.className = 'file-card';
     const fileName = file.name || file.filename;
     const score = file.score || (file.metadata ? 100 : 80);
-    const url = file.cloudinary_url || file.local_url;
+    // JSON files have 'online_url', Media files have 'cloudinary_url'
+    const url = file.cloudinary_url || file.online_url || file.local_url;
     
     let previewContent = '';
     if (file.type === 'image' && url) {
@@ -554,7 +585,6 @@ function initApp() {
     // Type dropdown
     typeSelect.addEventListener('change', () => {
         // When type dropdown changes, reset category filters to 'all'
-        // This is a common UX pattern
         currentFilters.category = 'all';
         currentFilters.extension = 'all';
         highlightActiveSidebar(); // This will highlight 'All Files'
