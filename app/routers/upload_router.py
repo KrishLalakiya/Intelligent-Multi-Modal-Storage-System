@@ -1,7 +1,6 @@
-# app/routers/upload_router.py
-
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from app.utils import file_utils
+import os
 
 router = APIRouter()
 
@@ -14,28 +13,20 @@ async def upload_files(file: UploadFile = File(...)):
     try:
         if extension == "zip":
             results = await file_utils.handle_zip_upload(file)
-            if not results:
-                return {"message": "ZIP processed, but no valid media files were found."}
-            
-            # Return a list of URLs
             return {
-                "message": f"ZIP processed. {len(results)} files uploaded.",
-                "uploaded_files": [
-                    {"public_id": r["public_id"], "url": r["secure_url"]} for r in results
-                ]
+                "message": f"ZIP processed. {len(results)} files handled.",
+                "storage_mode": os.getenv("STORAGE_MODE", "local"),
+                "saved_files": results
             }
         
         elif extension in file_utils.ALLOWED_IMAGE_EXTENSIONS or \
              extension in file_utils.ALLOWED_VIDEO_EXTENSIONS:
             
             result = await file_utils.handle_file_upload(file)
-            
-            # Return the secure URL and public_id
             return {
-                "message": "File uploaded successfully to Cloudinary",
-                "public_id": result["public_id"],
-                "url": result["secure_url"],
-                "resource_type": result["resource_type"]
+                "message": "File processed successfully.",
+                "storage_mode": os.getenv("STORAGE_MODE", "local"),
+                "saved_file": result
             }
         
         else:
