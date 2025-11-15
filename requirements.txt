@@ -1,6 +1,11 @@
+# requirements.txt
+
 fastapi
 uvicorn[standard]
 python-multipart
 cloudinary
 werkzeug
-cloudinary python-dotenv
+# Required for asynchronous file I/O operations (used in json_routes.py)
+aiofiles
+# Required for loading environment variables (used in main.py)
+python-dotenv
