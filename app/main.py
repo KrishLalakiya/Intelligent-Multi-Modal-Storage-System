@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-# --- 1. ADD THIS IMPORT ---
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware 
 
 # Import your new files_router

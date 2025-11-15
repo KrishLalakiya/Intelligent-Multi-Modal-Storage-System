@@ -26,7 +26,7 @@ class JSONAnalyzer:
         for path in [self.sql_path, self.nosql_path, self.temp_path, self.schema_path]:
             path.mkdir(parents=True, exist_ok=True)
         
-        # --- NEW: Database connections ---
+        # --- Database connections (from new code) ---
         try:
             # Use check_same_thread=False, which is critical for FastAPI
             self.sql_conn = sqlite3.connect(self.sql_path / "json_data.db", check_same_thread=False)
@@ -48,6 +48,9 @@ class JSONAnalyzer:
 
     # --- Analysis functions (identical in both files, no changes) ---
     def analyze_json_file(self, file_path: str) -> Dict[str, Any]:
+        """
+        Enhanced analysis with better performance and more insights
+        """
         try:
             file_size = os.path.getsize(file_path)
             if file_size > 10 * 1024 * 1024:  # 10MB limit
@@ -69,6 +72,7 @@ class JSONAnalyzer:
             return {"recommendation": "nosql", "reason": f"Analysis error: {str(e)}"}
 
     def _analyze_array(self, data: List, file_path: str) -> Dict[str, Any]:
+        """Optimized array analysis"""
         if not data:
             return {"recommendation": "nosql", "reason": "Empty array"}
         sample_size = min(10, len(data))
@@ -88,6 +92,7 @@ class JSONAnalyzer:
         return {"recommendation": "nosql", "reason": "Variable structure"}
 
     def _analyze_object(self, data: Dict, file_path: str) -> Dict[str, Any]:
+        """Optimized object analysis."""
         has_immediate_nesting = False
         for value in data.values():
             if isinstance(value, dict) and value:
@@ -111,12 +116,14 @@ class JSONAnalyzer:
             }
 
     def _is_sql_optimized(self, sample: List[Dict], keys: set) -> bool:
+        """Check if data is optimized for SQL storage"""
         if len(keys) > 50: return False
         has_id = any(key.lower() in ['id', '_id'] for key in keys)
         has_foreign_keys = any(key.endswith('_id') for key in keys)
         return has_id or has_foreign_keys or len(keys) <= 20
 
     def _calculate_depth(self, obj, current_depth=0) -> int:
+        """Calculate maximum nesting depth efficiently"""
         if not isinstance(obj, dict): return current_depth
         max_depth = current_depth
         for value in obj.values():
@@ -126,7 +133,7 @@ class JSONAnalyzer:
                 max_depth = max(max_depth, self._calculate_depth(value[0], current_depth + 1))
         return max_depth
 
-    # --- NEW: Helper for SQL Storage ---
+    # --- Helper for SQL Storage (from new code) ---
     def _store_in_sql(self, data: List[Dict], table_name: str) -> str:
         if not self.sql_conn:
             return "SQL connection not available."
@@ -146,24 +153,29 @@ class JSONAnalyzer:
             
             placeholders = ", ".join(["?" for _ in safe_columns])
             for item in data:
-                values = [str(item.get(col, '')) for col in columns] # Use original column names for lookup
+                # Ensure values are safely converted to strings
+                values = [json.dumps(item.get(col)) if isinstance(item.get(col), (dict, list)) else str(item.get(col, '')) for col in columns]
                 cursor.execute(f"INSERT INTO {safe_table_name} VALUES ({placeholders})", values)
             
             self.sql_conn.commit()
             return f"Stored {len(data)} rows in SQL table '{safe_table_name}'"
         except Exception as e:
+            self.sql_conn.rollback()
             return f"SQL storage error: {str(e)}"
 
-    # --- NEW: Helper for NoSQL Storage ---
+    # --- Helper for NoSQL Storage (from new code) ---
     def _store_in_nosql(self, data: Any, collection_name: str) -> str:
         if not self.mongo_db:
             return "MongoDB connection not available."
         try:
             # Sanitize collection name (basic)
             safe_collection_name = "".join(c for c in collection_name if c.isalnum() or c in ['_', '-'])
+            if not safe_collection_name:
+                safe_collection_name = "default_collection"
             collection = self.mongo_db[safe_collection_name]
             
             if isinstance(data, list):
+                if not data: return "No data to store"
                 result = collection.insert_many(data)
                 return f"Stored {len(result.inserted_ids)} documents in MongoDB collection '{safe_collection_name}'"
             else:
@@ -172,7 +184,7 @@ class JSONAnalyzer:
         except Exception as e:
             return f"NoSQL storage error: {str(e)}"
 
-    # --- MERGED: The new store_json_file function ---
+    # --- MERGED: The new store_json_file function (with bug fix) ---
     def store_json_file(self, file_path: str, original_name: str, analysis: Dict) -> Dict[str, Any]:
         """
         MERGED FUNCTION:
@@ -183,7 +195,7 @@ class JSONAnalyzer:
         recommendation = analysis["recommendation"]
         
         try:
-            # --- 1. Deduplication (from your old file) ---
+            # --- 1. Hashing and Deduplication (from your old file) ---
             file_hash = self._get_file_hash(file_path)
             duplicate = self._check_duplicate(file_hash, recommendation)
             
@@ -228,8 +240,7 @@ class JSONAnalyzer:
             if storage_mode in ("local", "both"):
                 shutil.copy(file_path, local_target_path) 
                 result["local_path"] = str(local_target_path)
-                # Save metadata for the *file*
-                self._save_metadata(local_target_path, analysis, original_name)
+                # Metadata will be saved AFTER online block
 
             if storage_mode in ("online", "both"):
                 try:
@@ -250,11 +261,24 @@ class JSONAnalyzer:
             
             if recommendation == "sql":
                 db_data = [data] if isinstance(data, dict) else data
-                result["database_result"] = self._store_in_sql(db_data, db_name)
+                if isinstance(db_data, list) and (len(db_data) == 0 or isinstance(db_data[0], dict)):
+                     result["database_result"] = self._store_in_sql(db_data, db_name)
+                else:
+                    result["database_result"] = "SQL storage skipped: data is not a list of objects."
             else:
                 result["database_result"] = self._store_in_nosql(data, db_name)
 
-            # --- 6. Cleanup Temp File ---
+            # --- 6. BUG FIX: Save Metadata AFTER getting URL ---
+            if storage_mode in ("local", "both"):
+                # We save metadata only if we have a local file to save it *next to*
+                self._save_metadata(
+                    local_target_path, 
+                    analysis, 
+                    original_name, 
+                    result.get("online_url") # Pass the URL
+                )
+
+            # --- 7. Cleanup Temp File ---
             Path(file_path).unlink(missing_ok=True)
             
             return result
@@ -265,6 +289,7 @@ class JSONAnalyzer:
 
     # --- Helper functions (from your old file) ---
     def _get_file_hash(self, file_path: str) -> str:
+        """Generate file hash for deduplication"""
         hasher = hashlib.md5()
         with open(file_path, 'rb') as f:
             for chunk in iter(lambda: f.read(4096), b""):
@@ -272,6 +297,7 @@ class JSONAnalyzer:
         return hasher.hexdigest()
 
     def _check_duplicate(self, file_hash: str, storage_type: str) -> str:
+        """Check if file already exists"""
         storage_path = self.sql_path if storage_type == "sql" else self.nosql_path
         for existing_file in storage_path.glob("*"):
             if existing_file.is_file() and existing_file.name.endswith('.json') and not existing_file.name.endswith(('.meta.json', '.schema.json')):
@@ -279,29 +305,38 @@ class JSONAnalyzer:
                     return str(existing_file)
         return ""
 
-    def _save_metadata(self, file_path: Path, analysis: Dict, original_name: str):
+    # --- MODIFIED: _save_metadata (with bug fix) ---
+    def _save_metadata(self, file_path: Path, analysis: Dict, original_name: str, online_url: str = None):
         """Saves metadata for the *stored file*."""
-        metadata = {
-            "original_filename": original_name,
-            "analysis": analysis,
-            "analyzed_at": datetime.now().isoformat(),
-            "file_size": file_path.stat().st_size
-        }
-        metadata_path = file_path.with_suffix('.meta.json')
-        with open(metadata_path, 'w') as f:
-            json.dump(metadata, f, indent=2)
+        try:
+            # 1. Save Metadata
+            metadata = {
+                "original_filename": original_name,
+                "analysis": analysis,
+                "analyzed_at": datetime.now().isoformat(),
+                "file_size": file_path.stat().st_size,
+                "online_url": online_url  # <-- ADDED THIS LINE
+            }
+            
+            metadata_path = file_path.with_suffix('.meta.json')
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata, f, indent=2)
 
-        schema_info = {
-            "original_filename": original_name,
-            "storage_type": analysis["recommendation"],
-            "columns": analysis.get("columns", analysis.get("keys", [])),  
-            "reason": analysis["reason"],
-            "analyzed_at": datetime.now().isoformat()
-        }
-        schema_file_name = file_path.stem + '.schema.json'
-        schema_path = self.schema_path / schema_file_name
-        with open(schema_path, 'w') as f:
-            json.dump(schema_info, f, indent=2)
+            # 2. Save Schema
+            schema_info = {
+                "original_filename": original_name,
+                "storage_type": analysis["recommendation"],
+                "columns": analysis.get("columns", analysis.get("keys", [])),  
+                "reason": analysis["reason"],
+                "analyzed_at": datetime.now().isoformat()
+            }
+            
+            schema_file_name = file_path.stem + '.schema.json'
+            schema_path = self.schema_path / schema_file_name
+            with open(schema_path, 'w') as f:
+                json.dump(schema_info, f, indent=2)
+        except Exception as e:
+            print(f"Error saving metadata for {file_path}: {e}")
 
     # --- NEW: Cleanup function ---
     def __del__(self):
