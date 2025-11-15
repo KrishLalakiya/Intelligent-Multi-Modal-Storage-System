@@ -4,6 +4,8 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 import aiofiles
 from pathlib import Path
 import asyncio
+from typing import List, Dict
+import json
 
 from app.utils.json_analyzer import JSONAnalyzer
 

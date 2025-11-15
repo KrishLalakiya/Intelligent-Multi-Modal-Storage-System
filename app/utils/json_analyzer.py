@@ -17,8 +17,8 @@ class JSONAnalyzer:
         self.temp_path = self.base_dir / "temp"
         self.schema_path = self.base_dir / "internal_databases" / "schemas"
         
-        # Create directories efficiently
-        for path in [self.sql_path, self.nosql_path, self.temp_path,self.schema_path]:
+        # Create directories efficiently (schema_path is correctly included now)
+        for path in [self.sql_path, self.nosql_path, self.temp_path, self.schema_path]:
             path.mkdir(parents=True, exist_ok=True)
 
     def analyze_json_file(self, file_path: str) -> Dict[str, Any]:
@@ -38,9 +38,10 @@ class JSONAnalyzer:
             if isinstance(data, list):
                 return self._analyze_array(data, file_path)
             elif isinstance(data, dict):
-                return self._analyze_object(data, file_path)
+                # Pass the file path (though not currently used in _analyze_object logic)
+                return self._analyze_object(data, file_path) 
             else:
-                return {"recommendation": "nosql", "reason": "Simple data type"}
+                return {"recommendation": "nosql", "reason": "Simple scalar data type, best handled as NoSQL document"}
                 
         except json.JSONDecodeError as e:
             return {"recommendation": "nosql", "reason": f"Invalid JSON: {str(e)}"}
@@ -57,7 +58,7 @@ class JSONAnalyzer:
         sample = data[:sample_size]
         
         if not all(isinstance(item, dict) for item in sample):
-            return {"recommendation": "nosql", "reason": "Array contains non-object items"}
+            return {"recommendation": "nosql", "reason": "Array contains non-object items, lacks uniform structure"}
         
         # Check structure consistency efficiently
         first_keys = set(sample[0].keys())
@@ -73,23 +74,41 @@ class JSONAnalyzer:
                     "columns": list(first_keys)
                 }
         
-        return {"recommendation": "nosql", "reason": "Variable structure or complex data"}
+        return {"recommendation": "nosql", "reason": "Variable structure or complex data, better for NoSQL batch insertion"}
 
     def _analyze_object(self, data: Dict, file_path: str) -> Dict[str, Any]:
-        """Optimized object analysis"""
-        # Check nesting depth efficiently
-        max_depth = self._calculate_depth(data)
+        """
+        Optimized object analysis.
+        Modified to recommend NoSQL for any immediate nesting (depth > 1) 
+        to handle document-style data.
+        """
         
-        if max_depth > 2:
+        # NEW LOGIC: Check for any immediate nesting (nested dict/list at the top level)
+        has_immediate_nesting = False
+        for value in data.values():
+            # Check for nested dictionaries
+            if isinstance(value, dict) and value:
+                has_immediate_nesting = True
+                break
+            # Check for lists that contain other complex structures
+            if isinstance(value, list) and value and any(isinstance(item, (dict, list)) for item in value):
+                has_immediate_nesting = True
+                break
+        
+        # Calculate max depth for insight/metrics
+        max_depth = self._calculate_depth(data) 
+
+        # DECISION FIX: Prioritize nesting for NoSQL recommendation
+        if has_immediate_nesting:
             return {
                 "recommendation": "nosql", 
-                "reason": f"Deeply nested structure (depth: {max_depth})",
+                "reason": f"Contains nested dictionary or list (depth: {max_depth}), ideal for document storage.",
                 "nesting_level": max_depth
             }
         else:
             return {
                 "recommendation": "sql",
-                "reason": "Flat or lightly nested structure",
+                "reason": "Flat structure, ideal for relational querying.",
                 "keys": list(data.keys())
             }
 
@@ -99,7 +118,7 @@ class JSONAnalyzer:
         if len(keys) > 50:
             return False
             
-        # Rule 2: Check for common SQL patterns
+        # Rule 2: Check for common SQL patterns (optional aid)
         has_id = any(key.lower() in ['id', '_id'] for key in keys)
         has_foreign_keys = any(key.endswith('_id') for key in keys)
         
@@ -132,10 +151,12 @@ class JSONAnalyzer:
             # Check for duplicates
             duplicate = self._check_duplicate(file_hash, analysis["recommendation"])
             if duplicate:
+                # IMPORTANT: If duplicate, delete the temp file and return
+                Path(file_path).unlink(missing_ok=True)
                 return {
                     "success": True,
                     "original_name": original_name,
-                    "stored_name": duplicate,
+                    "stored_name": Path(duplicate).name,
                     "storage_type": analysis["recommendation"].upper(),
                     "final_path": duplicate,
                     "reason": analysis["reason"],
@@ -155,10 +176,10 @@ class JSONAnalyzer:
                 final_path = self.nosql_path / new_name
                 storage_type = "NoSQL"
             
-            # Move with metadata
+            # Move with metadata (shutil.move handles the temp file deletion)
             shutil.move(file_path, str(final_path))
             
-            # Save analysis metadata
+            # Save analysis metadata and schema
             self._save_metadata(final_path, analysis, original_name)
             
             return {
@@ -173,6 +194,8 @@ class JSONAnalyzer:
             }
             
         except Exception as e:
+            # Ensure temp file is cleaned up if storage fails for other reasons
+            Path(file_path).unlink(missing_ok=True)
             return {"success": False, "error": str(e)}
 
     def _get_file_hash(self, file_path: str) -> str:
@@ -187,13 +210,16 @@ class JSONAnalyzer:
         """Check if file already exists"""
         storage_path = self.sql_path if storage_type == "sql" else self.nosql_path
         
-        for existing_file in storage_path.glob("*.json"):
-            if file_hash in existing_file.name:
-                return str(existing_file)
+        # Only check files that are NOT metadata or schema files
+        for existing_file in storage_path.glob("*"):
+            if existing_file.is_file() and existing_file.name.endswith('.json') and not existing_file.name.endswith(('.meta.json', '.schema.json')):
+                if file_hash in existing_file.name:
+                    return str(existing_file)
         return ""
 
     def _save_metadata(self, file_path: Path, analysis: Dict, original_name: str):
-        """Save analysis metadata alongside the file"""
+        """Save analysis metadata and schema alongside the file"""
+        # 1. Save Metadata
         metadata = {
             "original_filename": original_name,
             "analysis": analysis,
@@ -205,10 +231,11 @@ class JSONAnalyzer:
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=2)
 
+        # 2. Save Schema
         schema_info = {
             "original_filename": original_name,
             "storage_type": analysis["recommendation"],
-            # Use 'columns' for SQL arrays, 'keys' for objects
+            # Use 'columns' for array analysis, 'keys' for object analysis
             "columns": analysis.get("columns", analysis.get("keys", [])), 
             "reason": analysis["reason"],
             "analyzed_at": datetime.now().isoformat()
@@ -218,6 +245,4 @@ class JSONAnalyzer:
         schema_path = self.schema_path / schema_file_name
         
         with open(schema_path, 'w') as f:
-            json.dump(schema_info, f, indent=2)       
-
-            
+            json.dump(schema_info, f, indent=2)
