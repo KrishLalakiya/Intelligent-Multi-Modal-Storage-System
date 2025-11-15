@@ -1,19 +1,19 @@
 /* Base Styles & Variables */
 :root {
     --primary: #6C63FF;
---secondary: #FF6584;
+    --secondary: #FF6584;
     --accent: #36D1DC;
     --neon-blue: #4A9EFF;
     --neon-purple: #6C63FF;
     --neon-cyan: #36D1DC;
     --dark: #121212;
---landing-dark: #070D1E; /* Deep Dark Blue for new theme */
+    --landing-dark: #070D1E; /* Deep Dark Blue for new theme */
     --light: #f8f9fa;
     --text: #e0e0e0;
     --card-bg: rgba(255, 255, 255, 0.05);
     --transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     --border-radius: 16px;
---shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
 
 /* Light mode variables for main app */
@@ -25,11 +25,11 @@
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
 
-                * {
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
 body {
     /* UNIFIED FONT: Inter is the default for everything */
@@ -82,11 +82,14 @@ body {
 .page2 {
     display: none;
     opacity: 0;
+    overflow-y: auto; /* Enable scrolling */
+    height: 100vh; /* Full viewport height */
 }
 
 .page2.active {
     display: flex;
     opacity: 1;
+    flex-direction: column; /* Ensure proper layout for scrolling */
 }
 
 /* CORRECTED: Blurred Background Image Container */
@@ -363,6 +366,7 @@ body {
     flex: 1;
     padding: 2rem;
     gap: 2rem;
+    min-height: 0; /* Important for flex children to scroll */
 }
 
 /* Sidebar Styles */
@@ -486,6 +490,8 @@ body {
 /* File Grid Styles */
 .section-files {
     flex: 1;
+    min-height: 0; /* Allow section to shrink and scroll */
+    overflow-y: auto; /* Enable scrolling for files section */
 }
 
 .section-header {
