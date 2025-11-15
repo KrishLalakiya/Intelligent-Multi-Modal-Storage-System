@@ -12,32 +12,59 @@ router = APIRouter()
 
 def format_local_media(file_path: Path, storage_root: Path) -> Dict[str, Any]:
     """Helper to format local media files for the frontend"""
-    category = file_path.parent.parent.name # e.g., 'images'
-    ext = file_path.parent.name # e.g., 'jpg'
+    category = file_path.parent.parent.name # e.g., 'images' or 'videos'
     
-    # Create the local retrieval URL
+    # NEW: Get extension directly from the file_path suffix
+    ext = file_path.suffix.lstrip('.').lower() # e.g., 'jpg', 'png', 'mp4'
+    
     local_url = f"/files/{category}/{ext}/{file_path.name}"
     
     return {
         "name": file_path.name,
         "type": "image" if category == "images" else "video",
-        "category": category.capitalize(),
-        "local_url": local_url, # Frontend can use this for retrieval
+        "category": category.capitalize(), # 'Images' or 'Videos'
+        "extension": ext,  # <-- Corrected extension
+        "local_url": local_url,
         "cloudinary_url": None,
         "timestamp": os.path.getmtime(file_path),
-        "score": 100 # Placeholder
+        "score": 100 
     }
 
 def format_cloudinary_media(resource: Dict) -> Dict[str, Any]:
     """Helper to format Cloudinary files for the frontend"""
+    
+    # Use resource_type as a fallback if folder is missing or malformed
+    resource_type = resource.get("resource_type", "image") # 'image' or 'video'
+    
+    # Extract extension from filename (part of public_id) or URL
+    # public_id for "images/jpg/myimage" -> parts = ["images", "jpg", "myimage"]
+    # URL: https://res.cloudinary.com/.../images/jpg/myimage.jpg -> suffix = .jpg
+    public_id_parts = resource["public_id"].split('/')
+    ext = ""
+    if len(public_id_parts) > 1:
+        # Try to get it from the folder structure first
+        ext = public_id_parts[-2].lower() # e.g., 'jpg' from 'images/jpg/file'
+    
+    # Fallback to URL suffix if folder part is not an extension
+    if not ext or ext not in ["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "tif", "svg", "heic", "heif", "ico", "raw", "cr2", "nef", "orf", "sr2", "avif", "mp4", "mov", "avi", "mkv", "wmv", "flv", "webm", "mpeg", "mpg", "3gp", "m4v", "vob"]:
+        # Extract from secure_url (e.g., .../file.jpg)
+        url_suffix = Path(resource["secure_url"]).suffix.lstrip('.').lower()
+        if url_suffix:
+            ext = url_suffix
+
+    # If still no valid extension, use the main resource_type as a fallback
+    if not ext:
+        ext = resource_type
+            
     return {
         "name": resource["public_id"],
-        "type": resource["resource_type"],
-        "category": resource["resource_type"].capitalize() + "s",
+        "type": resource_type,
+        "category": resource_type.capitalize() + "s", # 'Images' or 'Videos'
+        "extension": ext, # <-- Corrected extension extraction
         "local_url": None,
         "cloudinary_url": resource["secure_url"],
         "timestamp": resource["created_at"],
-        "score": 100 # Placeholder
+        "score": 100 
     }
 
 @router.get("/files")
@@ -53,85 +80,79 @@ async def get_all_files(
     all_files = []
 
     # --- 1. Get JSON Files ---
-    # The frontend uses 'SQL', 'NoSQL', 'all' for categories
     json_category = None
     if category in ("SQL", "NoSQL"):
         json_category = category.lower()
     elif type == "json":
-        json_category = "all" # We need to handle 'all' in list_json_files
+        json_category = "all" 
     
-    # If no filter, or a JSON filter, get JSON files
-    if not type or not category or json_category:
+    if not type or not category or json_category or category == 'all':
         try:
-            # list_json_files returns a full response dict
             json_response = await list_json_files(category=json_category)
-            # The 'type' and 'category' are custom. Let's fix them.
             for file in json_response.get("files", []):
                 file["type"] = "json"
                 file["category"] = file["metadata"].get("analysis", {}).get("recommendation", "nosql").upper()
+                file["extension"] = "json" # <-- Always 'json' for JSON files
                 file["name"] = file["filename"]
                 all_files.append(file)
         except Exception as e:
             print(f"Error fetching JSON files: {e}")
 
     # --- 2. Get Media Files (Images/Videos) ---
-    if not type or type in ("image", "video") or category in ("Images", "Videos"):
+    if not type or type in ("image", "video") or category in ("Images", "Videos") or category == 'all':
         # --- From Local Storage ---
         if storage_mode in ("local", "both"):
             media_root = Path("storage")
-            for ext_dir in media_root.glob("*/*"): # e.g., images/jpg
-                if not ext_dir.is_dir(): continue
-                for file_path in ext_dir.glob("*"):
-                    if file_path.is_file():
-                        all_files.append(format_local_media(file_path, media_root))
+            # Loop through category (images, videos) then extension (jpg, png)
+            for cat_dir in media_root.glob("*"): # e.g., 'storage/images', 'storage/videos'
+                if not cat_dir.is_dir(): continue
+                
+                for ext_dir in cat_dir.glob("*"): # e.g., 'storage/images/jpg', 'storage/videos/mp4'
+                    if not ext_dir.is_dir(): continue
+                    
+                    for file_path in ext_dir.glob("*"): # actual files
+                        if file_path.is_file():
+                            all_files.append(format_local_media(file_path, media_root))
         
         # --- From Cloudinary ---
         if storage_mode in ("online", "both"):
             try:
-                # This requires your 'Admin API' to be enabled on Cloudinary
-                # This lists ALL files. In production, you'd paginate.
+                # Images
                 resources = cloudinary.api.resources(
-                    type="upload",
-                    prefix="images/", # Get all images
-                    max_results=100
-                )
+                    type="upload", prefix="images/", max_results=100)
                 for res in resources.get("resources", []):
                     all_files.append(format_cloudinary_media(res))
                 
+                # Videos
                 resources_vid = cloudinary.api.resources(
-                    type="upload",
-                    resource_type="video",
-                    prefix="videos/", # Get all videos
-                    max_results=100
-                )
+                    type="upload", resource_type="video", prefix="videos/", max_results=100)
                 for res in resources_vid.get("resources", []):
                     all_files.append(format_cloudinary_media(res))
             except Exception as e:
                 print(f"Could not list Cloudinary files. Is Admin API enabled? {e}")
 
-    # --- 3. Apply Final Filters (if any) ---
-    # (Skipping for brevity, but here you would filter the 'all_files' list
-    # based on the 'type' and 'category' query parameters)
+    # --- 3. Apply Final Filters ---
+    final_files = all_files
     
-    return all_files # The frontend's 'loadFiles' expects a direct list
+    if type and type != 'all':
+        final_files = [f for f in final_files if f['type'] == type]
+    
+    if category and category != 'all':
+        final_files = [f for f in final_files if f['category'] == category]
 
+    return final_files 
+
+# --- STUB ENDPOINTS (Unchanged) ---
 @router.get("/search")
 async def stub_search(q: str = Query(...)):
-    """
-    A 'stub' endpoint for search so the frontend doesn't break.
-    """
     print(f"Search query received: {q}")
-    return [] # Return an empty list
+    return [] 
 
 @router.get("/categories")
 async def stub_categories():
-    """
-    A 'stub' endpoint for categories.
-    """
-    # This should be dynamic, but a stub is fine for now
     return [
-        {"name": "Images", "count": 12},
-        {"name": "Videos", "count": 8},
-        {"name": "SQL", "count": 4},
+        {"name": "Images", "count": 0},
+        {"name": "Videos", "count": 0},
+        {"name": "SQL", "count": 0},
         {"name": "NoSQL", "count": 0}
     ]
