@@ -954,3 +954,149 @@ body {
 .hero-logo span {
     animation: glow 4s infinite ease-in-out;
 }
+
+/* --- New Sidebar Styles --- */
+.item-cat-group {
+    margin-bottom: 0.5rem;
+}
+
+.item-cat-main {
+    padding: 0.7rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+}
+
+.item-cat-main:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+.light-mode .item-cat-main:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.item-cat-main.active {
+    background: rgba(108, 99, 255, 0.2);
+    color: var(--primary);
+}
+
+.item-cat-main .fa-chevron-down {
+    font-size: 0.8rem;
+    opacity: 0.6;
+    transition: transform 0.3s ease;
+}
+
+.item-cat-main.open .fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+.list-cat-sub {
+    list-style: none;
+    padding-left: 1.5rem;
+    margin-top: 0.5rem;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.list-cat-sub.open {
+    max-height: 300px; /* Or any height large enough */
+}
+
+.item-cat-sub {
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.item-cat-sub:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.item-cat-sub.active {
+    background: rgba(108, 99, 255, 0.1);
+    opacity: 1;
+    font-weight: 500;
+}
+/* --- New Sidebar Styles --- */
+.item-cat-group {
+    margin-bottom: 0.5rem;
+}
+
+.item-cat-main {
+    padding: 0.7rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+}
+
+.item-cat-main:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+.light-mode .item-cat-main:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.item-cat-main.active {
+    background: rgba(108, 99, 255, 0.2);
+    color: var(--primary);
+}
+
+/* This is the dropdown arrow */
+.item-cat-main .fa-chevron-down {
+    font-size: 0.8rem;
+    opacity: 0.6;
+    transition: transform 0.3s ease;
+}
+
+.item-cat-main.open .fa-chevron-down {
+    transform: rotate(180deg);
+}
+
+/* This is the sub-list */
+.list-cat-sub {
+    list-style: none;
+    padding-left: 1.5rem;
+    margin-top: 0.5rem;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+/* This class is added by JS to open the list */
+.list-cat-sub.open {
+    max-height: 300px; /* Or any height large enough */
+}
+
+.item-cat-sub {
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.item-cat-sub:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.item-cat-sub.active {
+    background: rgba(108, 99, 255, 0.1);
+    opacity: 1;
+    font-weight: 500;
+}

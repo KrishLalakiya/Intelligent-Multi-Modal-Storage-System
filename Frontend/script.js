@@ -5,10 +5,9 @@ const API_BASE_URL = 'http://127.0.0.1:8000';
 const API_ENDPOINTS = {
     HEALTH: '/health',
     GET_FILES: '/files',
-    UPLOAD_MEDIA: '/upload/', // From upload_router.py
-    UPLOAD_JSON: '/json/bulk-upload', // From json_routes.py
-    SEARCH: '/search', // Stub endpoint
-    CATEGORIES: '/categories' // Stub endpoint
+    UPLOAD: '/upload/', // The SINGLE upload endpoint
+    SEARCH: '/search',
+    CATEGORIES: '/categories'
 };
 
 // ===================================
@@ -40,19 +39,17 @@ const statusText = document.getElementById('status-text');
 //  GLOBAL STATE
 // ===================================
 let currentFilters = {
-    type: 'all',
-    category: 'all'
+    type: 'all',        // 'image', 'video', 'json', 'all'
+    category: 'all',    // 'Images', 'Videos', 'JSON', 'SQL', 'NoSQL', 'all'
+    extension: 'all'    // 'jpg', 'png', 'mp4', 'json', 'all'
 };
 let currentView = 'grid'; // 'grid' or 'list'
-let allFiles = []; // Store all files for client-side filtering
+let allFilesCache = []; // To store all files for client-side filtering
 
 // ===================================
 //  API SERVICE LAYER
 // ===================================
 
-/**
- * Checks if the backend is online.
- */
 async function checkBackendHealth() {
     try {
         await fetch(`${API_BASE_URL}${API_ENDPOINTS.HEALTH}`);
@@ -63,86 +60,46 @@ async function checkBackendHealth() {
     }
 }
 
-/**
- * Fetches all files from the backend based on current filters.
- */
 async function fetchFiles() {
     showLoadingState(true, 'Loading files...');
     try {
-        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.GET_FILES}`);
+        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.GET_FILES}?category=all`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        allFiles = await response.json();
+        allFilesCache = await response.json(); 
         
-        // Apply client-side filtering
-        const filteredFiles = filterFiles(allFiles);
-        
-        renderFiles(filteredFiles);
-        updateCategoryCounts(allFiles); // Use all files for counts
+        updateCategoryCounts(allFilesCache); // This is the new, simpler function
+        filterAndRenderFiles();
         updateConnectionStatus(true);
 
     } catch (error) {
         showError('Failed to load files. Is the backend running?');
         updateConnectionStatus(false);
         console.error('fetchFiles error:', error);
+        allFilesCache = [];
+        updateCategoryCounts([]);
+        renderFiles([]);
     } finally {
         showLoadingState(false);
     }
 }
 
-/**
- * Filters files based on current type and category filters
- * @param {Array} files - Array of all files
- * @returns {Array} Filtered files
- */
-function filterFiles(files) {
-    return files.filter(file => {
-        // Type filter (from dropdown)
-        const typeMatch = currentFilters.type === 'all' || 
-                         file.type === currentFilters.type;
-        
-        // Category filter (from sidebar)
-        const categoryMatch = currentFilters.category === 'all' || 
-                            file.category === currentFilters.category;
-        
-        return typeMatch && categoryMatch;
-    });
-}
-
-/**
- * Fetches search results from the backend.
- * @param {string} query - The search query.
- */
 async function fetchSearch(query) {
     if (query.length < 2) {
-        fetchFiles(); // Reload all if query is cleared
+        filterAndRenderFiles(); 
         return;
     }
     
     showLoadingState(true, `Searching for "${query}"...`);
-    try {
-        const params = new URLSearchParams({ q: query });
-        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.SEARCH}?${params}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const files = await response.json();
-        
-        renderFiles(files);
-        updateCategoryCounts(files); // Update counts for the search results
-        
-    } catch (error) {
-        showError('Search failed.');
-        console.error('fetchSearch error:', error);
-    } finally {
-        showLoadingState(false);
-    }
+    const searchResults = allFilesCache.filter(file => 
+        (file.name || file.filename || '').toLowerCase().includes(query.toLowerCase())
+    );
+    renderFiles(searchResults);
+    updateCategoryCounts(searchResults); 
+    showLoadingState(false);
 }
 
-/**
- * "Smart" uploader. Sorts files and sends them to the correct endpoints.
- */
 async function uploadFiles() {
     const files = fileInput.files;
     if (files.length === 0) {
@@ -150,83 +107,73 @@ async function uploadFiles() {
         return;
     }
 
-    const mediaFormData = new FormData();
-    const jsonFormData = new FormData();
-    let mediaFileCount = 0;
-    let jsonFileCount = 0;
-
-    // 1. Sort files into media and JSON
-    Array.from(files).forEach(file => {
-        if (file.name.endsWith('.json') || file.type === 'application/json') {
-            jsonFormData.append('files', file); // 'files' for bulk endpoint
-            jsonFileCount++;
-        } else {
-            mediaFormData.append(file.name, file); // Use unique keys for media
-            mediaFileCount++;
-        }
-    });
-
     showLoadingState(true, `Uploading ${files.length} file(s)...`);
     toggleModal(false);
 
-    const uploadPromises = [];
+    let successMessages = [];
+    let failedUploads = 0;
+    let lastSuccessfulUpload = null;
 
-    // 2. Create upload promise for JSON (if any)
-    if (jsonFileCount > 0) {
-        uploadPromises.push(
-            fetch(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD_JSON}`, {
+    for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD}`, {
                 method: 'POST',
-                body: jsonFormData
-            }).then(response => {
-                if (!response.ok) throw new Error(`JSON upload failed`);
-                return response.json();
-            })
-        );
-    }
+                body: formData
+            });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || `Server error for ${file.name}`);
+            }
+            
+            const result = await response.json();
+            const fileInfo = result.saved_file; 
+            
+            let mainCategory = '';
+            let fileExt = '';
+            let subCategory = ''; // For JSON
 
-    // 3. Create upload promises for Media (one by one)
-    if (mediaFileCount > 0) {
-        // We must upload media one by one as our endpoint expects a single file
-        for (const [key, file] of mediaFormData.entries()) {
-            const singleMediaForm = new FormData();
-            singleMediaForm.append('file', file, key); // 'file' is the key backend expects
+            if (fileInfo.json_type) { 
+                fileExt = 'json';
+                mainCategory = 'JSON';
+                subCategory = fileInfo.json_type.toUpperCase(); // 'SQL' or 'NOSQL'
+            } else { 
+                mainCategory = fileInfo.category; // e.g., 'Images'
+                fileExt = fileInfo.extension;   // e.g., 'jpg'
+            }
 
-            uploadPromises.push(
-                fetch(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD_MEDIA}`, {
-                    method: 'POST',
-                    body: singleMediaForm
-                }).then(response => {
-                    if (!response.ok) throw new Error(`Upload failed for ${file.name}`);
-                    return response.json();
-                })
-            );
+            successMessages.push(`Uploaded ${file.name} (Type: ${fileExt.toUpperCase()})`);
+            
+            lastSuccessfulUpload = {
+                category: mainCategory, // 'Images' or 'JSON'
+                subCategory: subCategory, // 'SQL' or 'NoSQL'
+                extension: fileExt // 'jpg' or 'json'
+            };
+            
+        } catch (error) {
+            failedUploads++;
+            console.error("Upload failed for file:", file.name, error);
+            showError(`Upload failed for ${file.name}: ${error.message || 'Unknown error'}`); 
         }
     }
     
-    // 4. Run all uploads concurrently and report results
-    try {
-        const results = await Promise.allSettled(uploadPromises);
-        
-        let failedUploads = 0;
-        results.forEach(result => {
-            if (result.status === 'rejected') {
-                failedUploads++;
-                console.error("Upload failed:", result.reason);
-            }
-        });
+    if (successMessages.length > 0 && failedUploads === 0) {
+        showSuccess(`All ${files.length} files uploaded successfully!`);
+    } else if (successMessages.length > 0 && failedUploads > 0) {
+        showSuccess(`${successMessages.length} files uploaded, ${failedUploads} failed.`);
+    }
 
-        if (failedUploads > 0) {
-            showError(`${failedUploads} (out of ${files.length}) files failed to upload.`);
+    fileInput.value = ''; 
+    await fetchFiles(); 
+    
+    if (lastSuccessfulUpload) {
+        if (lastSuccessfulUpload.mainCategory === 'JSON') {
+            navigateToCategory(lastSuccessfulUpload.subCategory, 'json'); // Navigate to 'SQL' or 'NoSQL'
         } else {
-            showSuccess(`All ${files.length} files uploaded successfully!`);
+            navigateToCategory(lastSuccessfulUpload.category, lastSuccessfulUpload.extension); // Navigate to 'Images'/'jpg'
         }
-
-    } catch (error) {
-        showError('An unexpected error occurred during upload.');
-        console.error("Upload error:", error);
-    } finally {
-        fileInput.value = ''; // Clear the file input
-        await fetchFiles(); // Refresh the file grid
     }
 }
 
@@ -235,132 +182,162 @@ async function uploadFiles() {
 //  UI RENDERING
 // ===================================
 
-/**
- * Renders all files into the main grid.
- * @param {Array} files - An array of file objects from the backend.
- */
-function renderFiles(files) {
-    filesGrid.innerHTML = ''; // Clear existing files
+function filterAndRenderFiles() {
+    let filteredFiles = allFilesCache;
+    let title = "All Files";
 
+    // 1. Filter by main category OR type
+    if (currentFilters.category === 'Images' || currentFilters.category === 'Videos' || currentFilters.category === 'JSON') {
+        filteredFiles = filteredFiles.filter(f => f.type.toLowerCase() === currentFilters.category.toLowerCase());
+        title = `${currentFilters.category} Files`;
+    } else if (currentFilters.category === 'SQL' || currentFilters.category === 'NoSQL') {
+        filteredFiles = filteredFiles.filter(f => f.category === currentFilters.category);
+        title = `${currentFilters.category} Files`;
+    }
+    
+    // 2. Filter by specific extension (if one is selected)
+    if (currentFilters.extension !== 'all') {
+        if (currentFilters.category === 'SQL' || currentFilters.category === 'NoSQL') {
+            // For SQL/NoSQL, extension is 'json', but we filter by main category
+            filteredFiles = filteredFiles.filter(f => f.category === currentFilters.category);
+            title = `${currentFilters.category} Files`;
+        } else {
+            // For Images/Videos, filter by extension
+            filteredFiles = filteredFiles.filter(f => f.extension === currentFilters.extension);
+            title = `${currentFilters.category} / ${currentFilters.extension.toUpperCase()}`;
+        }
+    }
+    
+    // 3. Filter by Type dropdown (if not 'all')
+    const type = typeSelect.value;
+    if (type !== 'all') {
+         filteredFiles = filteredFiles.filter(f => f.type === type);
+    }
+
+    sectionTitle.textContent = title;
+    renderFiles(filteredFiles);
+}
+
+/**
+ * NEW: Simple function to update counts on the static list
+ */
+function updateCategoryCounts(files) {
+    // 1. Initialize all known counts to 0
+    const counts = {
+        all: files.length,
+        Images: 0, Videos: 0, JSON: 0, SQL: 0, NoSQL: 0
+    };
+    const extensions = [
+        "jpg", "jpeg", "png", "gif", "webp", "avif", "svg", "bmp", "tiff", "tif", "heic", "heif", "ico", "raw", "cr2", "nef", "orf", "sr2",
+        "mp4", "mov", "avi", "mkv", "wmv", "flv", "webm", "mpeg", "mpg", "3gp", "m4v", "vob"
+    ];
+    extensions.forEach(ext => counts[ext] = 0);
+
+    // 2. Tally counts from all files
+    for (const file of files) {
+        const mainCat = file.category; // 'Images', 'SQL', 'NoSQL'
+        const ext = file.extension; // 'jpg', 'json'
+        const type = file.type; // 'image', 'video', 'json'
+
+        if (type === 'image' || type === 'video') {
+            if (counts.hasOwnProperty(mainCat)) counts[mainCat]++;
+            if (counts.hasOwnProperty(ext)) counts[ext]++;
+        } else if (type === 'json') {
+            counts.JSON++; // Increment main JSON count
+            if (counts.hasOwnProperty(mainCat)) counts[mainCat]++; // Increment SQL or NoSQL
+        }
+    }
+
+    // 3. Update main category HTML
+    document.querySelector('.cat-count[data-category="all"]').textContent = counts.all;
+    document.querySelector('.cat-count[data-category="Images"]').textContent = counts.Images;
+    document.querySelector('.cat-count[data-category="Videos"]').textContent = counts.Videos;
+    document.querySelector('.cat-count[data-category="JSON"]').textContent = counts.JSON;
+
+    // 4. Update all sub-category HTML
+    categoryList.querySelectorAll('.item-cat-sub').forEach(item => {
+        const ext = item.dataset.extension;
+        const mainCat = item.dataset.category; // This is 'SQL' or 'NoSQL' or 'Images' etc.
+        const countEl = item.querySelector('.cat-count');
+
+        if (mainCat === 'SQL') {
+            countEl.textContent = counts.SQL;
+        } else if (mainCat === 'NoSQL') {
+            countEl.textContent = counts.NoSQL;
+        } else if (counts.hasOwnProperty(ext)) {
+            // This handles jpg, png, mp4, etc.
+            countEl.textContent = counts[ext];
+        } else {
+            countEl.textContent = 0;
+        }
+    });
+}
+
+
+function renderFiles(files) {
+    filesGrid.innerHTML = '';
     if (files.length === 0) {
         filesGrid.innerHTML = `
-            <div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
-                <i class="fas fa-folder-open" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+            <div class="empty-state" style="grid-column: 1 / -1;">
+                <i class="fas fa-folder-open"></i>
                 <h3>No files found</h3>
                 <p>Try adjusting your filters or upload new files.</p>
-                <button class="btn btn-upload" onclick="toggleModal(true)" style="margin-top: 1rem;">
-                    <i class="fas fa-cloud-upload-alt"></i> Upload Files
-                </button>
             </div>
         `;
         return;
     }
-
     files.forEach(file => {
         filesGrid.appendChild(createFileCard(file));
     });
-
-    toggleView(currentView); // Re-apply current view
+    toggleView(currentView); // Re-apply view
 }
 
-/**
- * Creates a single file card element.
- * @param {object} file - A file object.
- * @returns {HTMLElement} A div element representing the file card.
- */
 function createFileCard(file) {
     const fileCard = document.createElement('div');
     fileCard.className = 'file-card';
-
-    // The backend /files endpoint returns a unified object
     const fileName = file.name || file.filename;
-    const fileType = file.type; // 'image', 'video', 'json'
-    const category = file.category; // 'Images', 'Videos', 'SQL', 'NoSQL'
-    const score = file.score || (file.metadata ? 100 : 80); // Use score or fake one
-    
-    // Use Cloudinary URL first, fall back to local URL
+    const score = file.score || (file.metadata ? 100 : 80);
     const url = file.cloudinary_url || file.local_url;
     
     let previewContent = '';
-    if (fileType === 'image' && url) {
-        previewContent = `<img src="${url}" alt="${fileName}" class="file-img" loading="lazy">`;
-    } else if (fileType === 'video') {
-        previewContent = `<i class="fas fa-file-video"></i>`; // Icon for video
-    } else if (fileType === 'json') {
-        previewContent = `<i class="fas fa-file-code"></i>`; // Icon for JSON
+    if (file.type === 'image' && url) {
+        previewContent = `<img src="${url.startsWith('http') ? url : API_BASE_URL + url}" alt="${fileName}" class="file-img" loading="lazy">`;
+    } else if (file.type === 'video') {
+        previewContent = `<i class="fas fa-file-video"></i>`;
+    } else if (file.type === 'json') {
+        previewContent = `<i class="fas fa-file-code"></i>`;
     } else {
-        previewContent = `<i class="fas fa-file"></i>`; // Default icon
+        previewContent = `<i class="fas fa-file"></i>`;
     }
     
     fileCard.innerHTML = `
-        <div class="file-preview">
-            ${previewContent}
-        </div>
+        <div class="file-preview">${previewContent}</div>
         <div class="file-info">
             <div class="file-name" title="${fileName}">${fileName}</div>
             <div class="file-details">
-                <span class="file-type">${fileType.toUpperCase()}</span>
+                <span class="file-type">${file.type.toUpperCase()}</span>
                 <div class="file-score">
                     <span>${score}%</span>
-                    <div class="score-bar">
-                        <div class="score-fill" style="width: ${score}%"></div>
-                    </div>
+                    <div class="score-bar"><div class="score-fill" style="width: ${score}%"></div></div>
                 </div>
             </div>
-            <div class="file-category">${category}</div>
+            <div class="file-category">${file.category} / ${file.extension.toUpperCase()}</div>
             <div class="file-timestamp">${formatTimestamp(file.timestamp)}</div>
         </div>
     `;
 
-    // Add click handler to open the file URL
     fileCard.addEventListener('click', () => {
-        if (!url) {
-            showError("No preview URL available for this file.");
-            return;
-        }
-        
-        // Local URLs need the base API path prepended
-        if (file.local_url && !file.local_url.startsWith('http')) {
-            window.open(`${API_BASE_URL}${file.local_url}`, '_blank');
-        } else {
-            window.open(url, '_blank');
-        }
+        if (!url) { showError("No preview URL available."); return; }
+        window.open(url.startsWith('http') ? url : `${API_BASE_URL}${url}`, '_blank');
     });
 
     return fileCard;
-}
-
-/**
- * Updates the category counts in the sidebar dynamically.
- * @param {Array} files - The current list of files.
- */
-function updateCategoryCounts(files) {
-    const counts = {
-        all: files.length,
-        Images: files.filter(f => f.category === 'Images').length,
-        Videos: files.filter(f => f.category === 'Videos').length,
-        SQL: files.filter(f => f.category === 'SQL').length,
-        NoSQL: files.filter(f => f.category === 'NoSQL').length,
-    };
-
-    categoryList.querySelectorAll('.item-cat').forEach(item => {
-        const category = item.dataset.category;
-        const countEl = item.querySelector('.cat-count');
-        if (countEl) {
-            countEl.textContent = counts[category] !== undefined ? counts[category] : 0;
-        }
-    });
 }
 
 // ===================================
 //  UI HELPERS
 // ===================================
 
-/**
- * Debounce function to limit how often a function can run.
- * @param {Function} func - The function to debounce.
- * @param {number} delay - The delay in milliseconds.
- */
 function debounce(func, delay) {
     let timeout;
     return function(...args) {
@@ -369,11 +346,6 @@ function debounce(func, delay) {
     };
 }
 
-/**
- * Shows or hides the main loading spinner.
- * @param {boolean} isLoading - Whether to show the loader.
- * @param {string} [message='Loading...'] - The message to display.
- */
 function showLoadingState(isLoading, message = 'Loading...') {
     if (isLoading) {
         filesGrid.innerHTML = `
@@ -382,18 +354,11 @@ function showLoadingState(isLoading, message = 'Loading...') {
                 <p>${message}</p>
             </div>
         `;
-    } else {
-        // Clearing is handled by renderFiles
     }
 }
 
-function showError(message) {
-    alert(`Error: ${message}`); // Simple alert, replace with a toast library
-}
-
-function showSuccess(message) {
-    alert(message); // Simple alert
-}
+function showError(message) { alert(`Error: ${message}`); }
+function showSuccess(message) { alert(message); }
 
 function updateConnectionStatus(isOnline) {
     statusContainer.className = isOnline ? 'status connected' : 'status disconnected';
@@ -402,27 +367,21 @@ function updateConnectionStatus(isOnline) {
 
 function formatTimestamp(timestamp) {
     if (!timestamp) return '...';
-    return new Date(timestamp).toLocaleDateString();
+    const date = typeof timestamp === 'number' ? new Date(timestamp * 1000) : new Date(timestamp);
+    return date.toLocaleDateString();
 }
 
 function toggleModal(show) {
     modalUpload.classList.toggle('active', show);
-    if (!show) {
-        fileInput.value = ''; // Reset file input on close
-    }
+    if (!show) fileInput.value = '';
 }
 
 function toggleTheme() {
     document.body.classList.toggle('light-mode');
     const icon = btnTheme.querySelector('i');
-    const isLight = document.body.classList.contains('light-mode');
-    icon.className = isLight ? 'fas fa-sun' : 'fas fa-moon';
+    icon.className = document.body.classList.contains('light-mode') ? 'fas fa-sun' : 'fas fa-moon';
 }
 
-/**
- * Toggles between grid and list view.
- * @param {string} view - 'grid' or 'list'.
- */
 function toggleView(view) {
     currentView = view;
     if (view === 'list') {
@@ -449,17 +408,71 @@ function toggleView(view) {
             card.querySelector('.file-info').style.padding = '1rem';
         });
     }
-    // Update active button
     viewButtons.querySelectorAll('.btn-view').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.view === view);
     });
+}
+
+function highlightActiveSidebar() {
+    categoryList.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
+    
+    let elToActivate;
+    if (currentFilters.category === 'all') {
+        elToActivate = categoryList.querySelector('.item-cat-main[data-category="all"]');
+    } else if (currentFilters.extension !== 'all') {
+        // This handles sub-category clicks (e.g., 'jpg', 'SQL')
+        if (currentFilters.category === 'SQL' || currentFilters.category === 'NoSQL') {
+             elToActivate = categoryList.querySelector(`.item-cat-sub[data-category="${currentFilters.category}"][data-extension="json"]`);
+        } else {
+             elToActivate = categoryList.querySelector(`.item-cat-sub[data-category="${currentFilters.category}"][data-extension="${currentFilters.extension}"]`);
+        }
+    } else {
+        // This handles main category clicks
+        elToActivate = categoryList.querySelector(`.item-cat-main[data-category="${currentFilters.category}"]`);
+    }
+
+    if (elToActivate) {
+        elToActivate.classList.add('active');
+        
+        // Auto-open parent toggle if a sub-item is active or main cat is active
+        const parentGroup = elToActivate.closest('.item-cat-group');
+        if (parentGroup) {
+            const mainCat = parentGroup.querySelector('.item-cat-main');
+            const subList = parentGroup.querySelector('.list-cat-sub');
+            if (mainCat && subList && mainCat.dataset.category !== 'all') {
+                mainCat.classList.add('open');
+                subList.classList.add('open');
+            }
+        }
+    }
+}
+
+function navigateToCategory(category, extension) {
+    let targetElement;
+    
+    if (category === 'SQL' || category === 'NoSQL') {
+        // For JSON, category is 'SQL' and extension is 'json'
+        targetElement = categoryList.querySelector(`.item-cat-sub[data-category="${category}"][data-extension="json"]`);
+    } else {
+        // For Media, category is 'Images' and extension is 'jpg'
+        targetElement = categoryList.querySelector(`.item-cat-sub[data-category="${category}"][data-extension="${extension}"]`);
+    }
+    
+    if (!targetElement) {
+        // Fallback to main category if sub-item not found (e.g. 'raw')
+        targetElement = categoryList.querySelector(`.item-cat-main[data-category="${category}"]`);
+    }
+
+    if (targetElement) {
+        targetElement.click(); // Simulate the click
+    }
 }
 
 function showMainApp() {
     page1.classList.add('hidden');
     setTimeout(() => {
         page2.classList.add('active');
-        fetchFiles(); // Load files when entering the app
+        fetchFiles();
     }, 800);
 }
 
@@ -478,25 +491,16 @@ function initApp() {
     // Page navigation
     btnStart.addEventListener('click', showMainApp);
     btnHome.addEventListener('click', showLandingPage);
-
-    // Theme
     btnTheme.addEventListener('click', toggleTheme);
-
-    // Modal
     btnUpload.addEventListener('click', () => toggleModal(true));
     btnClose.addEventListener('click', () => toggleModal(false));
     btnCancel.addEventListener('click', () => toggleModal(false));
-
-    // Upload
     dropArea.addEventListener('click', () => fileInput.click());
     btnSubmit.addEventListener('click', uploadFiles);
 
     // Drag and Drop
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, e => {
-            e.preventDefault();
-            e.stopPropagation();
-        }, false);
+        dropArea.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
     });
     ['dragenter', 'dragover'].forEach(eventName => {
         dropArea.addEventListener(eventName, () => dropArea.classList.add('drag-over'), false);
@@ -509,47 +513,67 @@ function initApp() {
         showSuccess(`${e.dataTransfer.files.length} file(s) ready to upload.`);
     }, false);
 
-    // Type filter
-    typeSelect.addEventListener('change', () => {
-        currentFilters.type = typeSelect.value;
-        fetchFiles();
-    });
-
-    // Category List
+    // --- NEW/UPDATED: Sidebar Click Logic ---
     categoryList.addEventListener('click', e => {
-        const item = e.target.closest('.item-cat');
-        if (item) {
-            categoryList.querySelectorAll('.item-cat').forEach(cat => {
-                cat.classList.remove('active');
+        const mainCatEl = e.target.closest('.item-cat-main');
+        const subCatEl = e.target.closest('.item-cat-sub');
+
+        // Close all other toggles
+        if (mainCatEl) {
+            categoryList.querySelectorAll('.item-cat-main.open').forEach(openMain => {
+                if (openMain !== mainCatEl) {
+                    openMain.classList.remove('open');
+                    if (openMain.nextElementSibling) {
+                        openMain.nextElementSibling.classList.remove('open');
+                    }
+                }
             });
-            item.classList.add('active');
-            currentFilters.category = item.dataset.category;
-            sectionTitle.textContent = `${item.querySelector('span').textContent}`;
-            fetchFiles(); // This will now apply the category filter
         }
+
+        if (subCatEl) {
+            // Clicked a sub-category (e.g., 'jpg' or 'SQL')
+            currentFilters.category = subCatEl.dataset.category;
+            currentFilters.extension = subCatEl.dataset.extension;
+        } else if (mainCatEl) {
+            // Clicked a main category (e.g., 'Images' or 'JSON')
+            currentFilters.category = mainCatEl.dataset.category;
+            currentFilters.extension = 'all'; // Reset extension filter
+            
+            // Toggle dropdown for non-'All Files' main categories
+            const subList = mainCatEl.nextElementSibling;
+            if (subList && subList.classList.contains('list-cat-sub')) {
+                mainCatEl.classList.toggle('open');
+                subList.classList.toggle('open');
+            }
+        }
+        
+        highlightActiveSidebar();
+        filterAndRenderFiles();
+    });
+    
+    // Type dropdown
+    typeSelect.addEventListener('change', () => {
+        // When type dropdown changes, reset category filters to 'all'
+        // This is a common UX pattern
+        currentFilters.category = 'all';
+        currentFilters.extension = 'all';
+        highlightActiveSidebar(); // This will highlight 'All Files'
+        filterAndRenderFiles();
     });
 
     // View Toggle
     viewButtons.addEventListener('click', e => {
         const btn = e.target.closest('.btn-view');
-        if (btn) {
-            toggleView(btn.dataset.view);
-        }
+        if (btn) toggleView(btn.dataset.view);
     });
 
     // Search
     searchInput.addEventListener('input', debounce(e => {
-        const query = e.target.value.trim();
-        if (query) {
-            fetchSearch(query);
-        } else {
-            fetchFiles();
-        }
+        fetchSearch(e.target.value.trim());
     }, 300));
     
     // Initial Load
     checkBackendHealth();
 }
 
-// Start the application
 document.addEventListener('DOMContentLoaded', initApp);
