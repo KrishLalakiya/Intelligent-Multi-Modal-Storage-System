@@ -1,0 +1,29 @@
+{
+  "product_id": "SKU-A45B-11",
+  "name": "Wireless Noise-Canceling Headphones",
+  "in_stock": true,
+  "details": {
+    "brand": "AudioPhile",
+    "model": "X-1000",
+    "color": "Midnight Black",
+    "weight_grams": 250
+  },
+  "tags": [
+    "audio",
+    "headphones",
+    "bluetooth",
+    "noise-canceling"
+  ],
+  "reviews": [
+    {
+      "author": "user_123",
+      "rating": 5,
+      "comment": "Best headphones I've ever owned!"
+    },
+    {
+      "author": "user_456",
+      "rating": 4,
+      "comment": "Great sound, but a bit tight on the ears."
+    }
+  ]
+}

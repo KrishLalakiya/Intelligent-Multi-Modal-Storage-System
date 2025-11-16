@@ -1,0 +1,10 @@
+{
+  "original_filename": "lol.json",
+  "analysis": {
+    "recommendation": "sql",
+    "reason": "Flat structure"
+  },
+  "analyzed_at": "2025-11-16T09:43:29.068733",
+  "file_size": 43,
+  "online_url": null
+}

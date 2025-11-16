@@ -1,0 +1,10 @@
+{
+  "original_filename": "new_file.json",
+  "analysis": {
+    "recommendation": "nosql",
+    "reason": "Variable structure"
+  },
+  "analyzed_at": "2025-11-16T09:37:32.947005",
+  "file_size": 37,
+  "online_url": null
+}

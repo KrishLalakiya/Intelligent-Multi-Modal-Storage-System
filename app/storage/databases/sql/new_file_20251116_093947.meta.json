@@ -1,0 +1,10 @@
+{
+  "original_filename": "new_file.json",
+  "analysis": {
+    "recommendation": "sql",
+    "reason": "Flat structure"
+  },
+  "analyzed_at": "2025-11-16T09:39:47.436332",
+  "file_size": 43,
+  "online_url": null
+}

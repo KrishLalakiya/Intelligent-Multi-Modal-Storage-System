@@ -1,0 +1,10 @@
+{
+  "original_filename": "id_to_text.json",
+  "analysis": {
+    "recommendation": "sql",
+    "reason": "Flat structure"
+  },
+  "analyzed_at": "2025-11-16T08:18:25.901043",
+  "file_size": 389,
+  "online_url": null
+}
