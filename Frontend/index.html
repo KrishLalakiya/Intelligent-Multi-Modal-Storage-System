@@ -257,6 +257,14 @@
                     <input type="file" class="input-file" id="input-file" multiple>
                 </div>
                 <div class="modal-btns">
+                    <div class="progress-container" id="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 0%;">
+                                <span id="progress-text">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <button class="btn btn-cancel" id="btn-cancel">Cancel</button>
                     <button type="button" class="btn btn-submit" id="btn-submit">Upload Files</button>
                 </div>
@@ -301,3 +309,307 @@
 </body>
 
 </html>
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FileVibe | Semantic File Search</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="page page1" id="page1">
+            <div class="bg-image-blur" style="background-image: url('image3.avif');"></div>
+
+            <h1 class="hero-logo">File<span>Vibe</span></h1>
+            <p class="hero-text">Intelligent Multi-Modal Storage.
+                <br>
+                <span> "Let the vibes guide your search."</span>
+            </p>
+            <button class="btn btn-hero" id="btn-start">
+                <i class="fas fa-rocket"></i> Launch FileVibe
+            </button>
+        </div>
+
+        <div class="page page2" id="page2">
+            <header class="header">
+                <div class="logo" id="btn-home">File<span>Vibe</span></div>
+                <div class="search-box">
+                    <input type="text" class="search-input" id="search-input" placeholder="Search by meaning...">
+                    <button class="btn-search">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div class="header-btns">
+                    <button class="btn btn-action" id="btn-theme">
+                        <i class="fas fa-moon"></i> Theme
+                    </button>
+                    <button class="btn btn-upload" id="btn-upload">
+                        <i class="fas fa-cloud-upload-alt"></i> Upload
+                    </button>
+                </div>
+            </header>
+
+            <div class="content">
+                <aside class="sidebar">
+                    <h3 class="sidebar-title">
+                        <i class="fas fa-sliders-h"></i> Filters
+                    </h3>
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label class="label-filter"></label>
+                            <select class="select-filter" id="select-type">
+                                <option value="all">All Types</option>
+                                <option value="image">Images</option>
+                                <option value="video">Videos</option>
+                                <option value="json">JSON</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <h3 class="sidebar-title sidebar-cat-title">
+                        <i class="fas fa-folder"></i> Categories
+                    </h3>
+
+                    <ul class="list-cat" id="list-cat">
+
+                        <li class="item-cat-group">
+                            <div class="item-cat-main active" data-category="all">
+                                <span>All Files</span>
+                                <span class="cat-count" data-category="all">0</span>
+                            </div>
+                        </li>
+
+                        <li class="item-cat-group">
+                            <div class="item-cat-main" data-category="Images" data-type="image">
+                                <span>Images</span>
+                                <span class="cat-count" data-category="Images">0</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <ul class="list-cat-sub" data-main-category="Images">
+                                <li class="item-cat-sub" data-category="Images" data-extension="jpg">
+                                    <span>JPG</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="jpeg">
+                                    <span>JPEG</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="png">
+                                    <span>PNG</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="gif">
+                                    <span>GIF</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="webp">
+                                    <span>WEBP</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="avif">
+                                    <span>AVIF</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="svg">
+                                    <span>SVG</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="bmp">
+                                    <span>BMP</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="tiff">
+                                    <span>TIFF</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="tif">
+                                    <span>TIF</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="heic">
+                                    <span>HEIC</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="heif">
+                                    <span>HEIF</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="ico">
+                                    <span>ICO</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="raw">
+                                    <span>RAW</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="cr2">
+                                    <span>CR2</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="nef">
+                                    <span>NEF</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="orf">
+                                    <span>ORF</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Images" data-extension="sr2">
+                                    <span>SR2</span><span class="cat-count">0</span>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <li class="item-cat-group">
+                            <div class="item-cat-main" data-category="Videos" data-type="video">
+                                <span>Videos</span>
+                                <span class="cat-count" data-category="Videos">0</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <ul class="list-cat-sub" data-main-category="Videos">
+                                <li class="item-cat-sub" data-category="Videos" data-extension="mp4">
+                                    <span>MP4</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Videos" data-extension="mov">
+                                    <span>MOV</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Videos" data-extension="avi">
+                                    <span>AVI</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Videos" data-extension="mkv">
+                                    <span>MKV</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Videos" data-extension="wmv">
+                                    <span>WMV</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Videos" data-extension="flv">
+                                    <span>FLV</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Videos" data-extension="webm">
+                                    <span>WEBM</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Videos" data-extension="mpeg">
+                                    <span>MPEG</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Videos" data-extension="mpg">
+                                    <span>MPG</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Videos" data-extension="3gp">
+                                    <span>3GP</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Videos" data-extension="m4v">
+                                    <span>M4V</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="Videos" data-extension="vob">
+                                    <span>VOB</span><span class="cat-count">0</span>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <li class="item-cat-group">
+                            <div class="item-cat-main" data-category="JSON" data-type="json">
+                                <span>JSON</span>
+                                <span class="cat-count" data-category="JSON">0</span>
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                            <ul class="list-cat-sub" data-main-category="JSON">
+                                <li class="item-cat-sub" data-category="SQL" data-extension="json">
+                                    <span>SQL</span><span class="cat-count">0</span>
+                                </li>
+                                <li class="item-cat-sub" data-category="NoSQL" data-extension="json">
+                                    <span>NoSQL</span><span class="cat-count">0</span>
+                                </li>
+                            </ul>
+                        </li>
+
+                    </ul>
+                </aside>
+
+                <section class="section-files">
+                    <div class="section-header">
+                        <h2 class="section-title" id="section-title">All Files</h2>
+                        <div class="view-btns" id="view-btns">
+                            <button class="btn-view active" data-view="grid">
+                                <i class="fas fa-th"></i>
+                            </button>
+                            <button class="btn-view" data-view="list">
+                                <i class="fas fa-list"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid-files" id="grid-files">
+                    </div>
+                </section>
+            </div>
+
+            <footer class="footer">
+                <div class="status" id="status-container">
+                    <div class="status-dot" id="status-dot"></div>
+                    <span id="status-text">Connecting...</span>
+                </div>
+                <div class="footer-text">
+                    FileVibe &copy; 2025 | AI-Powered Storage
+                </div>
+            </footer>
+        </div>
+
+        <div class="modal" id="modal-upload">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Upload Files</h3>
+                    <button class="btn-close" id="btn-close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="create-file-section">
+                    <button class="btn btn-create-file" id="btn-create-file">
+                        <i class="fas fa-file-code"></i> Create New File
+                    </button>
+                </div>
+                <div class="upload-area" id="drop-area">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <p class="upload-text">Drag & drop files here or click to browse</p>
+                    <p class="upload-hint">Supports: JSON, JPG, PNG, MP4, etc.</p>
+                    <input type="file" class="input-file" id="input-file" multiple>
+                </div>
+                <div class="modal-btns">
+                    <button class="btn btn-cancel" id="btn-cancel">Cancel</button>
+                    <button type="button" class="btn btn-submit" id="btn-submit">Upload Files</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal" id="modal-editor">
+            <div class="modal-content editor-modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">Create New File</h3>
+                    <button class="btn-close" id="btn-close-editor"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="editor-container">
+                    <div class="editor-header">
+                        <select class="select-file-type" id="select-file-type">
+                            <option value="json">JSON File</option>
+                            <option value="txt">Text File</option>
+                            <option value="js">JavaScript</option>
+                            <option value="html">HTML</option>
+                            <option value="css">CSS</option>
+                            <option value="py">Python</option>
+                        </select>
+                        <input type="text" class="input-filename" id="input-filename" placeholder="filename.json" value="new_file.json">
+                    </div>
+                    <div class="code-editor" id="code-editor">
+                        <textarea id="code-textarea" placeholder="Start typing your code here..."></textarea>
+                    </div>
+                    <div class="editor-status">
+                        <span id="editor-status">Ready</span>
+                    </div>
+                </div>
+                <div class="modal-btns">
+                    <button class="btn btn-cancel" id="btn-cancel-editor">Cancel</button>
+                    <button class="btn btn-save" id="btn-save-file">Save File</button>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <script src="script.js" defer></script>
+</body>
+
+</html> -->
