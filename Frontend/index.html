@@ -205,6 +205,7 @@
 
                     </ul>
                 </aside>
+
                 <section class="section-files">
                     <div class="section-header">
                         <h2 class="section-title" id="section-title">All Files</h2>
@@ -241,6 +242,12 @@
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
+                
+                <div class="create-file-section">
+                    <button class="btn btn-create-file" id="btn-create-file">
+                        <i class="fas fa-file-code"></i> Create New File
+                    </button>
+                </div>
                 <div class="upload-area" id="drop-area">
                     <div class="upload-icon">
                         <i class="fas fa-cloud-upload-alt"></i>
@@ -255,6 +262,39 @@
                 </div>
             </div>
         </div>
+
+        <div class="modal" id="modal-editor">
+            <div class="modal-content editor-modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">Create New File</h3>
+                    <button class="btn-close" id="btn-close-editor"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="editor-container">
+                    <div class="editor-header">
+                        <select class="select-file-type" id="select-file-type">
+                            <option value="json">JSON File</option>
+                            <option value="txt">Text File</option>
+                            <option value="js">JavaScript</option>
+                            <option value="html">HTML</option>
+                            <option value="css">CSS</option>
+                            <option value="py">Python</option>
+                        </select>
+                        <input type="text" class="input-filename" id="input-filename" placeholder="filename.json" value="new_file.json">
+                    </div>
+                    <div class="code-editor" id="code-editor">
+                        <textarea id="code-textarea" placeholder="Start typing your code here..."></textarea>
+                    </div>
+                    <div class="editor-status">
+                        <span id="editor-status">Ready</span>
+                    </div>
+                </div>
+                <div class="modal-btns">
+                    <button class="btn btn-cancel" id="btn-cancel-editor">Cancel</button>
+                    <button class="btn btn-save" id="btn-save-file">Save File</button>
+                </div>
+            </div>
+        </div>
+        
     </div>
 
     <script src="script.js" defer></script>

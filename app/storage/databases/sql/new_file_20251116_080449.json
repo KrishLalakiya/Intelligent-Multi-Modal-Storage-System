@@ -1,0 +1,12 @@
+{
+  "_id": "12345",
+  "name": "foo bar",
+  "email": "foo@bar.com",
+  "address": {
+    "street": "123 foo street",
+    "city": "some city",
+    "state": "some state",
+    "zip": "123456"
+  },
+  "hobbies": ["music", "guitar", "reading"]
+}
