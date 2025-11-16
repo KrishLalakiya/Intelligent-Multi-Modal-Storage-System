@@ -23,25 +23,42 @@ ALLOWED_JSON_EXTENSIONS = {"json"}
 
 
 # === MEDIA HELPER 1: Local Media Storage ===
-def _save_media_to_local(file_data: bytes, filename: str) -> Path:
-    """
-    Saves file data to the local hybrid structure.
-    """
-    safe_filename = secure_filename(filename)
-    extension = safe_filename.split('.')[-1].lower()
+# def _save_media_to_local(file_data: bytes, filename: str) -> Path:
+#     """
+#     Saves file data to the local hybrid structure.
+#     """
+#     safe_filename = secure_filename(filename)
+#     extension = safe_filename.split('.')[-1].lower()
     
-    if extension in ALLOWED_IMAGE_EXTENSIONS:
-        target_dir = IMAGE_DIR / extension
-    elif extension in ALLOWED_VIDEO_EXTENSIONS:
-        target_dir = VIDEO_DIR / extension
-    else:
-        raise ValueError(f"Unsupported file type: {extension}")
+#     if extension in ALLOWED_IMAGE_EXTENSIONS:
+#         target_dir = IMAGE_DIR / extension
+#     elif extension in ALLOWED_VIDEO_EXTENSIONS:
+#         target_dir = VIDEO_DIR / extension
+#     else:
+#         raise ValueError(f"Unsupported file type: {extension}")
 
+#     target_dir.mkdir(parents=True, exist_ok=True)
+#     final_path = target_dir / safe_filename
+    
+#     with open(final_path, "wb") as buffer:
+#         buffer.write(file_data)
+        
+#     return final_path
+
+def _save_media_to_local(file_data: bytes, filename: str) -> Path:
+    # ... (path and directory logic unchanged) ...
+    
     target_dir.mkdir(parents=True, exist_ok=True)
     final_path = target_dir / safe_filename
     
-    with open(final_path, "wb") as buffer:
-        buffer.write(file_data)
+    try: # <--- ADDED TRY BLOCK
+        with open(final_path, "wb") as buffer:
+            buffer.write(file_data)
+    except Exception as e:
+        # This catches OS-level errors like Permission denied.
+        print(f"Local media file save failed for {filename}: {e}")
+        # Re-raise as ValueError so the upload_router catches it cleanly.
+        raise ValueError(f"Failed to save file locally (I/O error): {e}") 
         
     return final_path
 

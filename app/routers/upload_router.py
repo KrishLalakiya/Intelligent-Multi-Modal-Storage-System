@@ -73,12 +73,19 @@ async def upload_file(
                 "saved_files": results
             }
         
-        # --- 3. HANDLE MEDIA FILES ---
+       # --- 3. HANDLE MEDIA FILES ---
         elif extension in file_utils.ALLOWED_IMAGE_EXTENSIONS or \
              extension in file_utils.ALLOWED_VIDEO_EXTENSIONS:
             
-            # handle_file_upload is already mode-aware
-            result = await file_utils.handle_file_upload(file)
+            try:
+                # handle_file_upload is already mode-aware
+                result = await file_utils.handle_file_upload(file)
+            
+            except Exception as e:
+                # ⭐ DIAGNOSTIC PRINT: This is the most important part! ⭐
+                # This will print the exact failure reason (e.g., [Errno 13] Permission denied)
+                print(f"!!! MEDIA UPLOAD FAILED: {file.filename}. Error: {e}") 
+                raise HTTPException(status_code=400, detail=f"Media upload failed: {str(e)}")
             
             # Create a consistent "saved_file" object for the frontend
             ext = extension

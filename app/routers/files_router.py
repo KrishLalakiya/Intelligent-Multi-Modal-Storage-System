@@ -1,16 +1,12 @@
-# app/routers/files_router.py
-
 from fastapi import APIRouter, HTTPException, Query
 from pathlib import Path
 import os
 import cloudinary
 import cloudinary.api
 from typing import List, Dict, Any
-from datetime import datetime
 
 # Import the function from json_routes to reuse it!
-from app.routers.json_routes import list_json_files # We still use this for LOCAL mode
-from app.utils.json_analyzer import JSONAnalyzer # --- IMPORT THIS ---
+from app.routers.json_routes import list_json_files
 
 router = APIRouter()
 
@@ -26,6 +22,7 @@ def format_local_media(file_path: Path, storage_root: Path) -> Dict[str, Any]:
         "extension": ext,
         "local_url": local_url,
         "cloudinary_url": None,
+        # Restoring os.path.getmtime as per your claimed working version
         "timestamp": os.path.getmtime(file_path),
         "score": 100 
     }
@@ -37,21 +34,25 @@ def format_cloudinary_media(resource: Dict) -> Dict[str, Any]:
     ext = ""
     if len(public_id_parts) > 1:
         ext = public_id_parts[-2].lower()
-    if not ext:
+    
+    # Fallback logic to determine extension (kept from your last provided code)
+    if not ext or ext not in ["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "tif", "svg", "heic", "heif", "ico", "raw", "cr2", "nef", "orf", "sr2", "avif", "mp4", "mov", "avi", "mkv", "wmv", "flv", "webm", "mpeg", "mpg", "3gp", "m4v", "vob"]:
         url_suffix = Path(resource["secure_url"]).suffix.lstrip('.').lower()
         if url_suffix: ext = url_suffix
-    if not ext: ext = resource_type
+
+    if not ext:
+        ext = resource_type
+            
     return {
         "name": resource["public_id"],
         "type": resource_type,
-        "category": resource_type.capitalize() + "s", # 'Images' or 'Videos'
+        "category": resource_type.capitalize() + "s", 
         "extension": ext,
         "local_url": None,
         "cloudinary_url": resource["secure_url"],
         "timestamp": resource["created_at"],
         "score": 100 
     }
-
 
 @router.get("/files")
 async def get_all_files(
@@ -61,7 +62,7 @@ async def get_all_files(
     storage_mode = os.getenv("STORAGE_MODE", "local")
     all_files = []
 
-    # --- 1. Get JSON Files ---
+    # --- 1. Get JSON Files (Using your existing, protected code) ---
     json_category = None
     if category in ("SQL", "NoSQL"):
         json_category = category.lower()
@@ -69,57 +70,18 @@ async def get_all_files(
         json_category = "all" 
     
     if not type or not category or json_category or category == 'all':
-        # --- Online Mode (MongoDB) ---
-        if storage_mode in ("online", "both"):
-            try:
-                analyzer = JSONAnalyzer() # This connects to MongoDB
-                if analyzer.mongo_db:
-                    collections_to_search = []
-                    if json_category in ("sql", "all"):
-                        collections_to_search.append("sql_data")
-                    if json_category in ("nosql", "all"):
-                        collections_to_search.append("nosql_data")
-                    
-                    for collection_name in collections_to_search:
-                        # Find all documents, but *exclude* the 'content' field
-                        cursor = analyzer.mongo_db[collection_name].find(
-                            {},  # Empty filter = get all
-                            {"content": 0} # Exclude the actual content
-                        )
-                        for doc in cursor:
-                            recommendation = doc.get("analysis", {}).get("recommendation", "nosql")
-                            all_files.append({
-                                "name": doc["original_filename"],
-                                "type": "json",
-                                "category": recommendation.upper(), # 'SQL' or 'NOSQL'
-                                "extension": "json",
-                                "local_url": None,
-                                "cloudinary_url": None,
-                                "content_url": f"/json/content/{doc['_id']}", # NEW URL
-                                "timestamp": doc.get("stored_at", datetime.now()),
-                                "metadata": doc.get("analysis", {}),
-                                "score": 100,
-                                "id": doc["_id"]
-                            })
-            except Exception as e:
-                print(f"Error fetching JSON files from MongoDB: {e}")
-        
-        # --- Local Mode (Filesystem) ---
-        if storage_mode in ("local", "both"):
-             try:
-                json_response = await list_json_files(category=json_category)
-                for file in json_response.get("files", []):
-                    file["type"] = "json"
-                    file["category"] = file["metadata"].get("analysis", {}).get("recommendation", "nosql").upper()
-                    file["extension"] = "json"
-                    file["name"] = file["filename"]
-                    # Add a content_url for local files too
-                    file["content_url"] = file["local_url"]
-                    all_files.append(file)
-             except Exception as e:
-                print(f"Error fetching local JSON files: {e}")
+        try:
+            json_response = await list_json_files(category=json_category)
+            for file in json_response.get("files", []):
+                file["type"] = "json"
+                file["category"] = file["metadata"].get("analysis", {}).get("recommendation", "nosql").upper()
+                file["extension"] = "json" 
+                file["name"] = file["filename"]
+                all_files.append(file)
+        except Exception as e:
+            print(f"Error fetching JSON files: {e}")
 
-    # --- 2. Get Media Files (Images/Videos) ---
+    # --- 2. Get Media Files (Using your code + critical guard) ---
     if not type or type in ("image", "video") or category in ("Images", "Videos") or category == 'all':
         # --- From Local Storage ---
         if storage_mode in ("local", "both"):
@@ -127,6 +89,9 @@ async def get_all_files(
             # Loop through category (images, videos) then extension (jpg, png)
             for cat_dir in media_root.glob("*"): # e.g., 'storage/images', 'storage/videos'
                 if not cat_dir.is_dir(): continue
+                
+                # ⭐ CRITICAL FIX: Only allow media folders (This prevents the crash)
+                if cat_dir.name not in ('images', 'videos'): continue
                 
                 for ext_dir in cat_dir.glob("*"): # e.g., 'storage/images/jpg', 'storage/videos/mp4'
                     if not ext_dir.is_dir(): continue
