@@ -80,11 +80,11 @@ def _save_media_to_cloudinary(file_data: bytes, filename: str) -> dict:
         raise ValueError(f"Cloudinary upload failed: {e}")
 
 
-# === JSON HELPER 1: Classify JSON ===
+# === JSON HELPER 1: Classify JSON - FIXED ===
 def _classify_json_content(file_data: bytes) -> str:
     """
     Analyzes JSON content to determine if it's "sql" or "nosql"
-    based on a set of fast, simple rules (heuristics).
+    based on structure depth and complexity.
     """
     try:
         content_str = file_data.decode('utf-8')
@@ -92,36 +92,57 @@ def _classify_json_content(file_data: bytes) -> str:
     except Exception:
         return "unstructured"
 
-    # --- Rule-Based Checks ---
-    json_type = "nosql" # Default
-    
-    # Rule 1: Check for common NoSQL keys
-    if isinstance(data, dict):
-        keys = data.keys()
-        if "_id" in keys or "collection" in keys or "document_id" in keys:
-            json_type = "nosql"
-            
-    # Rule 2: Check for list of documents (common NoSQL pattern)
-    elif isinstance(data, list) and len(data) > 0:
-        if isinstance(data[0], dict) and "_id" in data[0].keys():
-            json_type = "nosql"
+    # Helper function to check depth
+    def get_depth(obj, current_depth=0):
+        # Base case: if not a complex type, return current depth
+        if not isinstance(obj, (dict, list)):
+            return current_depth
+        
+        max_depth = current_depth
+        if isinstance(obj, dict):
+            for value in obj.values():
+                # Recursive call for nested dicts/lists
+                if isinstance(value, (dict, list)):
+                    max_depth = max(max_depth, get_depth(value, current_depth + 1))
+        elif isinstance(obj, list):
+            for item in obj:
+                # Recursive call for nested dicts/lists
+                if isinstance(item, (dict, list)):
+                    max_depth = max(max_depth, get_depth(item, current_depth + 1))
+        
+        return max_depth
 
-    # Rule 3: Check for SQL-like content
+    # Check depth - if nested (depth >= 1), it's NoSQL
+    # Note: Depth 0 means an empty list or dictionary, or all scalar values.
+    depth = get_depth(data)
+    if depth >= 1:
+        return "nosql"
+    
+    # If depth is 0 (i.e., flat or empty), we check for true SQL structure
+    
+    # Case 1: Simple dictionary (key-value pairs of scalars)
     if isinstance(data, dict):
-        keys = data.keys()
-        if "query" in keys:
-            query_val = str(data["query"]).strip().upper()
-            if query_val.startswith(("SELECT", "INSERT", "UPDATE", "CREATE")):
-                json_type = "sql"
-            if "sql_statement" in keys:
-                json_type = "sql"
-                
-    return json_type
+        all_simple = all(not isinstance(v, (dict, list)) for v in data.values())
+        if all_simple:
+            return "sql"
+    
+    # Case 2: Array of simple objects (e.g., a list of database rows)
+    elif isinstance(data, list) and len(data) > 0:
+        # Check if the first item is a dictionary and that dictionary is flat
+        if isinstance(data[0], dict):
+            all_simple = all(not isinstance(v, (dict, list)) for v in data[0].values())
+            if all_simple:
+                # We assume a list of objects will have a consistent structure for SQL
+                return "sql"
+    
+    # Default to NoSQL for anything else (e.g., empty array, list of scalars)
+    return "nosql"
 
 
 # === JSON HELPER 2: Local JSON Storage ===
 def _save_json_to_local(file_data: bytes, filename: str, json_type: str) -> Path:
     safe_filename = secure_filename(filename)
+    # Target directory is inside 'app/storage/databases'
     target_dir = Path("app/storage/databases") / json_type 
     target_dir.mkdir(parents=True, exist_ok=True)
     
@@ -142,7 +163,7 @@ def _save_json_to_cloudinary(file_data: bytes, filename: str, json_type: str) ->
             file_data,
             public_id=public_id,
             folder=cloudinary_folder,
-            resource_type="raw"  # <-- Important: store JSON as a raw file
+            resource_type="raw"
         )
         return upload_result
     except Exception as e:
@@ -173,7 +194,7 @@ async def handle_file_upload(file: UploadFile) -> dict:
             result["online_url"] = cloudinary_result["secure_url"]
         except Exception as e:
             print(f"Cloudinary upload failed: {e}")
-            if storage_mode == "online": # Fail if it's the *only* mode
+            if storage_mode == "online":
                 raise e
 
     return result
@@ -207,7 +228,6 @@ async def handle_zip_upload(file: UploadFile) -> list[dict]:
                     }
 
                     try:
-                        # Check extension to make sure it's media
                         ext = base_filename.split('.')[-1].lower()
                         if ext not in ALLOWED_IMAGE_EXTENSIONS and ext not in ALLOWED_VIDEO_EXTENSIONS:
                             print(f"Skipping non-media file in zip: {base_filename}")
@@ -241,7 +261,7 @@ async def handle_json_upload(file: UploadFile) -> dict:
     file_data = await file.read()
     
     # 1. Classify the content
-    json_type = _classify_json_content(file_data) # "sql" or "nosql"
+    json_type = _classify_json_content(file_data)
     
     if json_type == "unstructured":
         raise ValueError("File is not valid JSON.")

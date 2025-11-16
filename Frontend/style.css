@@ -718,6 +718,22 @@ body {
     color: rgba(0, 0, 0, 0.7);
 }
 
+.upload-area {
+    border: 3px dashed #667eea;
+    background: #f8f9ff;
+}
+
+.upload-area.file-selected {
+    background: #e8f5e9;  /* Green tint */
+    border-color: #4caf50;  /* Green border */
+    border-style: solid;  /* Solid instead of dashed */
+}
+
+.upload-area.uploading {
+    background: #fff3e0;  /* Orange tint */
+    border-color: #ff9800;  /* Orange border */
+}
+
 .input-file {
     display: none;
 }
@@ -1132,4 +1148,40 @@ body {
     background: rgba(108, 99, 255, 0.1);
     opacity: 1;
     font-weight: 500;
+}
+/* --- Gallery Item Actions (Download/View Buttons) --- */
+.gallery-item-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.light-mode .gallery-item-actions {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.action-btn {
+    flex: 1;
+    background: rgba(108, 99, 255, 0.1);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+}
+
+.action-btn:hover {
+    background: var(--primary);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(108, 99, 255, 0.2);
 }
