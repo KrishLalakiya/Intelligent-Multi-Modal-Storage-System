@@ -1,0 +1,13 @@
+{
+  "original_filename": "quicktest.json",
+  "analysis": {
+    "recommendation": "sql",
+    "reason": "Flat structure",
+    "keys": [
+      "test"
+    ]
+  },
+  "analyzed_at": "2025-11-16T11:43:56.803218",
+  "file_size": 15,
+  "online_url": "https://res.cloudinary.com/dcy5vsdfk/raw/upload/v1763273621/json/sql/quicktest_20251116_114356_98266f54.json"
+}

@@ -1,0 +1,16 @@
+{
+  "original_filename": "test_data.json",
+  "analysis": {
+    "recommendation": "sql",
+    "reason": "Flat structure",
+    "keys": [
+      "id",
+      "name",
+      "email",
+      "age"
+    ]
+  },
+  "analyzed_at": "2025-11-16T11:30:05.993643",
+  "file_size": 85,
+  "online_url": null
+}

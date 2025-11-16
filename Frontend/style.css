@@ -691,6 +691,10 @@ body {
 .upload-area:hover {
     border-color: var(--primary);
 }
+.upload-area.file-selected {
+    border-color: var(--secondary); /* Change border to secondary color (pink/red) */
+    background: rgba(255, 101, 132, 0.1); /* Light background using secondary color */
+}
 
 /* Simplified icon styling for upload area */
 .upload-area i {

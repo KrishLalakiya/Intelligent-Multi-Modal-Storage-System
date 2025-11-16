@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware 
 
-# Import your routers
+# Import your new files_router
 from app.routers import upload_router, retrieve_router, json_routes, database_routes, files_router
 import cloudinary
 from dotenv import load_dotenv
@@ -14,21 +14,20 @@ load_dotenv()
 
 app = FastAPI(title="Media Storage API")
 
-# --- CORS Configuration ---
+# --- 2. DEFINE YOUR FRONTEND'S URL (THE "WHITELIST") ---
 origins = [
     "http://localhost",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000"
+    "http://localhost:5500",  # Your frontend (from screenshot)
+    "http://127.0.0.1:5500" # Also for your frontend
 ]
 
+# --- 3. ADD THE CORS MIDDLEWARE TO YOUR APP ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=origins,     # Allow the origins list
+    allow_credentials=True,    # Allow cookies
+    allow_methods=["*"],       # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"],       # Allow all headers
 )
 
 
@@ -38,7 +37,7 @@ async def startup_event():
     Configure Cloudinary based on STORAGE_MODE and create all storage directories.
     """
     
-    # 1. Cloudinary Config
+    # 1. Cloudinary Config (with the toggle)
     storage_mode = os.getenv("STORAGE_MODE", "local")    
     if storage_mode in ("online", "both"):
         if not os.getenv("CLOUDINARY_CLOUD_NAME"):
@@ -67,22 +66,23 @@ async def startup_event():
     print(f"✅ All {len(storage_dirs)} storage directories ensured.")
 
 
-# --- Include All Routers (with NO '/api' prefix) ---
+# --- 3. Include All Routers (with NO '/api' prefix) ---
 app.include_router(upload_router.router, tags=["Media Upload"])
 app.include_router(json_routes.router, tags=["JSON Processing"])
 app.include_router(database_routes.router, tags=["Internal Databases"])
 app.include_router(files_router.router, tags=["File Management"])
 
-# Conditional Local Retrieve Router
+# 4. Conditional Local Retrieve Router
 storage_mode = os.getenv("STORAGE_MODE", "local")
 if storage_mode in ("local", "both"):
+    # This router provides GET /files/{category}/{extension}/{filename}
     app.include_router(retrieve_router.router, tags=["Media Retrieve (Local)"])
     print("✅ Media Retrieve (Local) router is ACTIVE.")
 else:
     print("✅ Media Retrieve (Local) router is INACTIVE (online-only mode).")
 
 
-# --- Enhanced Root Endpoint ---
+# --- 5. Enhanced Root Endpoint ---
 @app.get("/")
 async def root():
     storage_mode = os.getenv("STORAGE_MODE", "local")
@@ -93,11 +93,11 @@ async def root():
         "message": "Welcome to the FileVibe API", 
         "storage_mode": storage_mode,
         "endpoints": {
-            "upload_media": "/upload",
-            "upload_json": "/json/upload",
-            "list_all_files": "/files",
-            "search_files": "/search",
-            "list_categories": "/categories",
+            "upload_media": "/upload", # Fixed path
+            "upload_json": "/json/upload", # Fixed path
+            "list_all_files": "/files", # New
+            "search_files": "/search", # New
+            "list_categories": "/categories", # New
             "retrieve_media": retrieve_endpoint,
             "list_tables": "/database/tables", 
             "list_collections": "/database/collections",
@@ -105,9 +105,10 @@ async def root():
         }
     }
 
-# --- Health Check Endpoint ---
+# --- 6. Health Check Endpoint ---
 @app.get("/health")
 async def health_check():
+    # ... (health check logic from your file, no changes needed) ...
     storage_mode = os.getenv("STORAGE_MODE", "local")
     cloudinary_configured = False
     

@@ -1,0 +1,10 @@
+{
+  "id": 1,
+  "user": {
+    "name": "Test User",
+    "profile": {
+      "age": 25,
+      "location": "Test City"
+    }
+  }
+}

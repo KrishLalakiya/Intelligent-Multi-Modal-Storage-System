@@ -1,0 +1,9 @@
+{
+  "original_filename": "quicktest.json",
+  "storage_type": "sql",
+  "columns": [
+    "test"
+  ],
+  "reason": "Flat structure",
+  "analyzed_at": "2025-11-16T11:43:56.803750"
+}

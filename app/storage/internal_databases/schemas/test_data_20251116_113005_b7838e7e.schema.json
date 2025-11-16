@@ -1,0 +1,12 @@
+{
+  "original_filename": "test_data.json",
+  "storage_type": "sql",
+  "columns": [
+    "id",
+    "name",
+    "email",
+    "age"
+  ],
+  "reason": "Flat structure",
+  "analyzed_at": "2025-11-16T11:30:05.994293"
+}

@@ -1,0 +1,11 @@
+{
+  "original_filename": "test_nested.json",
+  "analysis": {
+    "recommendation": "nosql",
+    "reason": "Nested data (depth: 2)",
+    "nesting_level": 2
+  },
+  "analyzed_at": "2025-11-16T11:30:06.011299",
+  "file_size": 134,
+  "online_url": null
+}

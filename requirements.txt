@@ -6,3 +6,4 @@ werkzeug
 cloudinary #python-dotenv
 aiofiles
 python-dotenv
+pymongo

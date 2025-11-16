@@ -23,42 +23,25 @@ ALLOWED_JSON_EXTENSIONS = {"json"}
 
 
 # === MEDIA HELPER 1: Local Media Storage ===
-# def _save_media_to_local(file_data: bytes, filename: str) -> Path:
-#     """
-#     Saves file data to the local hybrid structure.
-#     """
-#     safe_filename = secure_filename(filename)
-#     extension = safe_filename.split('.')[-1].lower()
-    
-#     if extension in ALLOWED_IMAGE_EXTENSIONS:
-#         target_dir = IMAGE_DIR / extension
-#     elif extension in ALLOWED_VIDEO_EXTENSIONS:
-#         target_dir = VIDEO_DIR / extension
-#     else:
-#         raise ValueError(f"Unsupported file type: {extension}")
-
-#     target_dir.mkdir(parents=True, exist_ok=True)
-#     final_path = target_dir / safe_filename
-    
-#     with open(final_path, "wb") as buffer:
-#         buffer.write(file_data)
-        
-#     return final_path
-
 def _save_media_to_local(file_data: bytes, filename: str) -> Path:
-    # ... (path and directory logic unchanged) ...
+    """
+    Saves file data to the local hybrid structure.
+    """
+    safe_filename = secure_filename(filename)
+    extension = safe_filename.split('.')[-1].lower()
     
+    if extension in ALLOWED_IMAGE_EXTENSIONS:
+        target_dir = IMAGE_DIR / extension
+    elif extension in ALLOWED_VIDEO_EXTENSIONS:
+        target_dir = VIDEO_DIR / extension
+    else:
+        raise ValueError(f"Unsupported file type: {extension}")
+
     target_dir.mkdir(parents=True, exist_ok=True)
     final_path = target_dir / safe_filename
     
-    try: # <--- ADDED TRY BLOCK
-        with open(final_path, "wb") as buffer:
-            buffer.write(file_data)
-    except Exception as e:
-        # This catches OS-level errors like Permission denied.
-        print(f"Local media file save failed for {filename}: {e}")
-        # Re-raise as ValueError so the upload_router catches it cleanly.
-        raise ValueError(f"Failed to save file locally (I/O error): {e}") 
+    with open(final_path, "wb") as buffer:
+        buffer.write(file_data)
         
     return final_path
 
@@ -130,16 +113,16 @@ def _classify_json_content(file_data: bytes) -> str:
             query_val = str(data["query"]).strip().upper()
             if query_val.startswith(("SELECT", "INSERT", "UPDATE", "CREATE")):
                 json_type = "sql"
-        if "sql_statement" in keys:
-            json_type = "sql"
-            
+            if "sql_statement" in keys:
+                json_type = "sql"
+                
     return json_type
 
 
 # === JSON HELPER 2: Local JSON Storage ===
 def _save_json_to_local(file_data: bytes, filename: str, json_type: str) -> Path:
     safe_filename = secure_filename(filename)
-    target_dir = JSON_DIR / json_type
+    target_dir = Path("app/storage/databases") / json_type 
     target_dir.mkdir(parents=True, exist_ok=True)
     
     final_path = target_dir / safe_filename
