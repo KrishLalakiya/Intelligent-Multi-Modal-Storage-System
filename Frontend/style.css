@@ -369,13 +369,15 @@ body {
     min-height: 0; /* Important for flex children to scroll */
 }
 
+
 /* Sidebar Styles */
 .sidebar {
     width: 250px;
     background: var(--card-bg);
     border-radius: var(--border-radius);
     padding: 1.5rem;
-    height: fit-content;
+    overflow-y: auto;     
+    flex-shrink: 0; 
 }
 
 .sidebar-title {
@@ -419,6 +421,7 @@ body {
     outline: none;
     transition: var(--transition);
     font-family: 'Inter', sans-serif; /* UNIFIED FONT */
+    width: 100%;
 }
 
 .light-mode .select-filter {
@@ -450,30 +453,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.7rem;
-}
-
-.item-cat {
-    padding: 0.7rem 1rem;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: var(--transition);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-family: 'Inter', sans-serif; /* UNIFIED FONT */
-}
-
-.item-cat:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.light-mode .item-cat:hover {
-    background: rgba(0, 0, 0, 0.1);
-}
-
-.item-cat.active {
-    background: rgba(108, 99, 255, 0.2);
-    color: var(--primary);
+    transition: max-height 0.2s ease-in-out;
 }
 
 .cat-count {
@@ -744,7 +724,7 @@ body {
     gap: 1rem;
 }
 
-.btn-cancel, .btn-submit {
+.btn-cancel, .btn-submit, .btn-save {
     padding: 0.7rem 1.5rem;
     border-radius: 50px;
     font-weight: 600;
@@ -759,14 +739,115 @@ body {
     background: rgba(0, 0, 0, 0.1);
 }
 
-.btn-submit {
+.btn-submit, .btn-save {
     background: linear-gradient(45deg, var(--primary), var(--accent));
     color: white;
 }
 
-.btn-cancel:hover, .btn-submit:hover {
+.btn-cancel:hover, .btn-submit:hover, .btn-save:hover {
     transform: translateY(-2px);
 }
+
+/* --- MERGED: Editor Styles --- */
+.create-file-section {
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.btn-create-file {
+    background: linear-gradient(45deg, var(--neon-cyan), var(--neon-blue));
+    color: white;
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    transition: var(--transition);
+}
+
+.btn-create-file:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(54, 209, 220, 0.4);
+}
+
+.editor-modal {
+    max-width: 800px;
+    height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.editor-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow: hidden; /* Added */
+}
+
+.editor-header {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.select-file-type {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 0.5rem;
+    min-width: 150px;
+    font-family: 'Inter', sans-serif;
+}
+
+.input-filename {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 0.5rem 1rem;
+    font-family: 'Inter', sans-serif;
+}
+
+.code-editor {
+    flex: 1;
+    background: #1e1e1e;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative; /* Added for textarea */
+}
+
+#code-textarea {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    color: #d4d4d4;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 1rem;
+    resize: none;
+    outline: none;
+    /* Added for better layout */
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.editor-status {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: auto; /* Push to bottom */
+}
+/* --- END OF MERGED STYLES --- */
+
 
 /* Footer */
 .footer {
@@ -796,18 +877,6 @@ body {
     border-radius: 50%;
     background: var(--secondary);
     animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
-    100% {
-        opacity: 1;
-    }
 }
 
 /* Responsive Styles */
@@ -852,6 +921,23 @@ body {
     .hero-text {
         font-size: 1.4rem;
     }
+
+    /* --- MERGED: Responsive Editor --- */
+    .editor-modal {
+        height: 90vh;
+        width: 95%; /* Added */
+        margin: 1rem;
+        padding: 1rem; /* Added */
+    }
+    .editor-header {
+        flex-direction: column;
+        gap: 0.5rem;
+        align-items: stretch; /* Added */
+    }
+    .select-file-type {
+        min-width: 100%;
+    }
+    /* --- END OF MERGED STYLES --- */
 }
 
 
@@ -869,6 +955,19 @@ body {
     to { background-position: 300% 0; } /* Animates the grid pattern horizontally */
 }
 
+/* Pulse for Status Dot */
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
 
 /* Loading States */
 .loading-state {
@@ -877,6 +976,7 @@ body {
     align-items: center;
     justify-content: center;
     padding: 3rem;
+    grid-column: 1 / -1; /* Added */
 }
 
 .loading-spinner {
@@ -897,6 +997,9 @@ body {
 /* Empty State */
 .empty-state {
     color: rgba(255, 255, 255, 0.6);
+    grid-column: 1 / -1; /* Added */
+    text-align: center; /* Added */
+    padding: 3rem; /* Added */
 }
 
 .empty-state h3 {
@@ -955,7 +1058,7 @@ body {
     animation: glow 4s infinite ease-in-out;
 }
 
-/* --- New Sidebar Styles --- */
+/* --- New Sidebar Styles (Collapsible) --- */
 .item-cat-group {
     margin-bottom: 0.5rem;
 }
@@ -1003,81 +1106,7 @@ body {
 }
 
 .list-cat-sub.open {
-    max-height: 300px; /* Or any height large enough */
-}
-
-.item-cat-sub {
-    padding: 0.6rem 1rem;
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.9rem;
-    opacity: 0.8;
-}
-
-.item-cat-sub:hover {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.item-cat-sub.active {
-    background: rgba(108, 99, 255, 0.1);
-    opacity: 1;
-    font-weight: 500;
-}
-/* --- New Sidebar Styles --- */
-.item-cat-group {
-    margin-bottom: 0.5rem;
-}
-
-.item-cat-main {
-    padding: 0.7rem 1rem;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: var(--transition);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-family: 'Inter', sans-serif;
-}
-
-.item-cat-main:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-.light-mode .item-cat-main:hover {
-    background: rgba(0, 0, 0, 0.1);
-}
-
-.item-cat-main.active {
-    background: rgba(108, 99, 255, 0.2);
-    color: var(--primary);
-}
-
-/* This is the dropdown arrow */
-.item-cat-main .fa-chevron-down {
-    font-size: 0.8rem;
-    opacity: 0.6;
-    transition: transform 0.3s ease;
-}
-
-.item-cat-main.open .fa-chevron-down {
-    transform: rotate(180deg);
-}
-
-/* This is the sub-list */
-.list-cat-sub {
-    list-style: none;
-    padding-left: 1.5rem;
-    margin-top: 0.5rem;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease-out;
-}
-
-/* This class is added by JS to open the list */
-.list-cat-sub.open {
-    max-height: 300px; /* Or any height large enough */
+    max-height: 500px; /* Increased height for all extensions */
 }
 
 .item-cat-sub {

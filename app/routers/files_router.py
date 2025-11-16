@@ -1,29 +1,29 @@
+# app/routers/files_router.py
+
 from fastapi import APIRouter, HTTPException, Query
 from pathlib import Path
 import os
 import cloudinary
 import cloudinary.api
 from typing import List, Dict, Any
+from datetime import datetime
 
 # Import the function from json_routes to reuse it!
-from app.routers.json_routes import list_json_files
+from app.routers.json_routes import list_json_files # We still use this for LOCAL mode
+from app.utils.json_analyzer import JSONAnalyzer # --- IMPORT THIS ---
 
 router = APIRouter()
 
 def format_local_media(file_path: Path, storage_root: Path) -> Dict[str, Any]:
     """Helper to format local media files for the frontend"""
     category = file_path.parent.parent.name # e.g., 'images' or 'videos'
-    
-    # NEW: Get extension directly from the file_path suffix
     ext = file_path.suffix.lstrip('.').lower() # e.g., 'jpg', 'png', 'mp4'
-    
     local_url = f"/files/{category}/{ext}/{file_path.name}"
-    
     return {
         "name": file_path.name,
         "type": "image" if category == "images" else "video",
         "category": category.capitalize(), # 'Images' or 'Videos'
-        "extension": ext,  # <-- Corrected extension
+        "extension": ext,
         "local_url": local_url,
         "cloudinary_url": None,
         "timestamp": os.path.getmtime(file_path),
@@ -32,50 +32,32 @@ def format_local_media(file_path: Path, storage_root: Path) -> Dict[str, Any]:
 
 def format_cloudinary_media(resource: Dict) -> Dict[str, Any]:
     """Helper to format Cloudinary files for the frontend"""
-    
-    # Use resource_type as a fallback if folder is missing or malformed
-    resource_type = resource.get("resource_type", "image") # 'image' or 'video'
-    
-    # Extract extension from filename (part of public_id) or URL
-    # public_id for "images/jpg/myimage" -> parts = ["images", "jpg", "myimage"]
-    # URL: https://res.cloudinary.com/.../images/jpg/myimage.jpg -> suffix = .jpg
+    resource_type = resource.get("resource_type", "image")
     public_id_parts = resource["public_id"].split('/')
     ext = ""
     if len(public_id_parts) > 1:
-        # Try to get it from the folder structure first
-        ext = public_id_parts[-2].lower() # e.g., 'jpg' from 'images/jpg/file'
-    
-    # Fallback to URL suffix if folder part is not an extension
-    if not ext or ext not in ["jpg", "jpeg", "png", "gif", "webp", "bmp", "tiff", "tif", "svg", "heic", "heif", "ico", "raw", "cr2", "nef", "orf", "sr2", "avif", "mp4", "mov", "avi", "mkv", "wmv", "flv", "webm", "mpeg", "mpg", "3gp", "m4v", "vob"]:
-        # Extract from secure_url (e.g., .../file.jpg)
-        url_suffix = Path(resource["secure_url"]).suffix.lstrip('.').lower()
-        if url_suffix:
-            ext = url_suffix
-
-    # If still no valid extension, use the main resource_type as a fallback
+        ext = public_id_parts[-2].lower()
     if not ext:
-        ext = resource_type
-            
+        url_suffix = Path(resource["secure_url"]).suffix.lstrip('.').lower()
+        if url_suffix: ext = url_suffix
+    if not ext: ext = resource_type
     return {
         "name": resource["public_id"],
         "type": resource_type,
         "category": resource_type.capitalize() + "s", # 'Images' or 'Videos'
-        "extension": ext, # <-- Corrected extension extraction
+        "extension": ext,
         "local_url": None,
         "cloudinary_url": resource["secure_url"],
         "timestamp": resource["created_at"],
         "score": 100 
     }
 
+
 @router.get("/files")
 async def get_all_files(
     type: str = Query(None),
     category: str = Query(None)
 ):
-    """
-    The main 'GET /files' endpoint that the frontend needs.
-    It combines all our different data sources.
-    """
     storage_mode = os.getenv("STORAGE_MODE", "local")
     all_files = []
 
@@ -87,16 +69,55 @@ async def get_all_files(
         json_category = "all" 
     
     if not type or not category or json_category or category == 'all':
-        try:
-            json_response = await list_json_files(category=json_category)
-            for file in json_response.get("files", []):
-                file["type"] = "json"
-                file["category"] = file["metadata"].get("analysis", {}).get("recommendation", "nosql").upper()
-                file["extension"] = "json" # <-- Always 'json' for JSON files
-                file["name"] = file["filename"]
-                all_files.append(file)
-        except Exception as e:
-            print(f"Error fetching JSON files: {e}")
+        # --- Online Mode (MongoDB) ---
+        if storage_mode in ("online", "both"):
+            try:
+                analyzer = JSONAnalyzer() # This connects to MongoDB
+                if analyzer.mongo_db:
+                    collections_to_search = []
+                    if json_category in ("sql", "all"):
+                        collections_to_search.append("sql_data")
+                    if json_category in ("nosql", "all"):
+                        collections_to_search.append("nosql_data")
+                    
+                    for collection_name in collections_to_search:
+                        # Find all documents, but *exclude* the 'content' field
+                        cursor = analyzer.mongo_db[collection_name].find(
+                            {},  # Empty filter = get all
+                            {"content": 0} # Exclude the actual content
+                        )
+                        for doc in cursor:
+                            recommendation = doc.get("analysis", {}).get("recommendation", "nosql")
+                            all_files.append({
+                                "name": doc["original_filename"],
+                                "type": "json",
+                                "category": recommendation.upper(), # 'SQL' or 'NOSQL'
+                                "extension": "json",
+                                "local_url": None,
+                                "cloudinary_url": None,
+                                "content_url": f"/json/content/{doc['_id']}", # NEW URL
+                                "timestamp": doc.get("stored_at", datetime.now()),
+                                "metadata": doc.get("analysis", {}),
+                                "score": 100,
+                                "id": doc["_id"]
+                            })
+            except Exception as e:
+                print(f"Error fetching JSON files from MongoDB: {e}")
+        
+        # --- Local Mode (Filesystem) ---
+        if storage_mode in ("local", "both"):
+             try:
+                json_response = await list_json_files(category=json_category)
+                for file in json_response.get("files", []):
+                    file["type"] = "json"
+                    file["category"] = file["metadata"].get("analysis", {}).get("recommendation", "nosql").upper()
+                    file["extension"] = "json"
+                    file["name"] = file["filename"]
+                    # Add a content_url for local files too
+                    file["content_url"] = file["local_url"]
+                    all_files.append(file)
+             except Exception as e:
+                print(f"Error fetching local JSON files: {e}")
 
     # --- 2. Get Media Files (Images/Videos) ---
     if not type or type in ("image", "video") or category in ("Images", "Videos") or category == 'all':

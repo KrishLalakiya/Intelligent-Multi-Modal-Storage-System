@@ -21,11 +21,11 @@ def process_additional_metadata(result: dict, analysis: dict):
 
 # --- Initialize your analyzer ---
 router = APIRouter()
-json_analyzer = JSONAnalyzer()
+json_analyzer = JSONAnalyzer() # This will connect to Mongo if mode is 'online' or 'both'
 
 @router.post("/upload/", status_code=201)
 async def upload_file(
-    background_tasks: BackgroundTasks,  # <-- Add this
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...)
 ):
     
@@ -35,7 +35,7 @@ async def upload_file(
     try:
         # --- 1. HANDLE JSON FILES ---
         if extension == "json":
-            # This logic is copied directly from your json_routes.py
+            # This logic is from your json_routes.py
             content = await file.read()
             temp_dir = Path("app/storage/temp")
             temp_dir.mkdir(exist_ok=True)
@@ -45,6 +45,7 @@ async def upload_file(
                 await f.write(content)
             
             analysis = json_analyzer.analyze_json_file(str(temp_file))
+            # store_json_file is now mode-aware
             result = json_analyzer.store_json_file(str(temp_file), file.filename, analysis)
             
             if not result["success"]:
@@ -64,6 +65,7 @@ async def upload_file(
 
         # --- 2. HANDLE ZIP FILES ---
         elif extension == "zip":
+            # handle_zip_upload is already mode-aware
             results = await file_utils.handle_zip_upload(file)
             return {
                 "message": f"ZIP processed. {len(results)} files handled.",
@@ -75,6 +77,7 @@ async def upload_file(
         elif extension in file_utils.ALLOWED_IMAGE_EXTENSIONS or \
              extension in file_utils.ALLOWED_VIDEO_EXTENSIONS:
             
+            # handle_file_upload is already mode-aware
             result = await file_utils.handle_file_upload(file)
             
             # Create a consistent "saved_file" object for the frontend
@@ -107,6 +110,6 @@ async def upload_file(
         # Clean up temp file on error, if it exists
         temp_file_path = Path("app/storage/temp") / f"temp_{file.filename}"
         if extension == "json" and temp_file_path.exists():
-            temp_file_path.unlink()
+            temp_file_path.unlink(missing_ok=True)
             
         raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")

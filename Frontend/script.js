@@ -35,6 +35,18 @@ const statusContainer = document.getElementById('status-container');
 const statusDot = document.getElementById('status-dot');
 const statusText = document.getElementById('status-text');
 
+// --- ADDED: Text Editor Elements ---
+const btnCreateFile = document.getElementById('btn-create-file');
+const modalEditor = document.getElementById('modal-editor');
+const btnCloseEditor = document.getElementById('btn-close-editor');
+const btnCancelEditor = document.getElementById('btn-cancel-editor');
+const btnSaveFile = document.getElementById('btn-save-file');
+const selectFileType = document.getElementById('select-file-type');
+const inputFilename = document.getElementById('input-filename');
+const codeTextarea = document.getElementById('code-textarea');
+const editorStatus = document.getElementById('editor-status');
+
+
 // ===================================
 //  GLOBAL STATE
 // ===================================
@@ -69,7 +81,7 @@ async function fetchFiles() {
         }
         allFilesCache = await response.json(); 
         
-        updateCategoryCounts(allFilesCache); // This is the new, simpler function
+        updateCategoryCounts(allFilesCache);
         filterAndRenderFiles();
         updateConnectionStatus(true);
 
@@ -151,13 +163,18 @@ async function uploadFiles() {
                 continue; // Skip to the next file
             }
 
+            // --- THIS BLOCK IS NOW FIXED ---
+            let fileExt = fileInfo.extension;
+            let category = fileInfo.category;
+
             successMessages.push(`Uploaded ${file.name} (Type: ${fileExt.toUpperCase()})`);
             
+            // This is the clean, simple object we need
             lastSuccessfulUpload = {
-                category: mainCategory, // 'Images' or 'JSON'
-                subCategory: subCategory, // 'SQL' or 'NoSQL'
-                extension: fileExt // 'jpg' or 'json'
+                category: category, // 'SQL', 'NoSQL', 'Images', 'Videos'
+                extension: fileExt  // 'json', 'jpg', 'mp4'
             };
+            // --- END OF FIX ---
             
         } catch (error) {
             failedUploads++;
@@ -175,12 +192,134 @@ async function uploadFiles() {
     fileInput.value = ''; 
     await fetchFiles(); 
     
+    // --- THIS BLOCK IS NOW FIXED ---
     if (lastSuccessfulUpload) {
-        if (lastSuccessfulUpload.mainCategory === 'JSON') {
-            navigateToCategory(lastSuccessfulUpload.subCategory, 'json'); // Navigate to 'SQL' or 'NoSQL'
-        } else {
-            navigateToCategory(lastSuccessfulUpload.category, lastSuccessfulUpload.extension); // Navigate to 'Images'/'jpg'
+        // This simple call works for all types
+        navigateToCategory(lastSuccessfulUpload.category, lastSuccessfulUpload.extension);
+    }
+}
+
+
+// ===================================
+//  TEXT EDITOR FUNCTIONS
+// ===================================
+function toggleEditorModal(show) {
+    modalEditor.classList.toggle('active', show);
+    if (show) {
+        updateEditorContent();
+        codeTextarea.focus();
+    } else {
+        codeTextarea.value = '';
+    }
+}
+
+function updateEditorContent() {
+    const fileType = selectFileType.value;
+    const filename = inputFilename.value;
+    
+    if (!filename.includes('.')) {
+        inputFilename.value = `new_file.${fileType}`;
+    } else {
+        const baseName = filename.split('.')[0];
+        inputFilename.value = `${baseName}.${fileType}`;
+    }
+    
+    let defaultContent = '';
+    switch (fileType) {
+        case 'json':
+            defaultContent = '{\n  "name": "value",\n  "array": [1, 2, 3],\n  "object": {\n    "key": "value"\n  }\n}';
+            break;
+        case 'js':
+            defaultContent = '// JavaScript code here\nfunction hello() {\n  console.log("Hello World!");\n}\nhello();';
+            break;
+        case 'html':
+            defaultContent = '<!DOCTYPE html>\n<html>\n<head>\n  <title>My Document</title>\n</head>\n<body>\n  <h1>Hello World!</h1>\n</body>\n</html>';
+            break;
+        case 'css':
+            defaultContent = '/* CSS styles here */\nbody {\n  margin: 0;\n  font-family: Arial, sans-serif;\n}';
+            break;
+        case 'py':
+            defaultContent = '# Python code here\ndef main():\n  print("Hello World!")\n\nif __name__ == "__main__":\n  main()';
+            break;
+        default:
+            defaultContent = 'Start typing your content here...';
+    }
+    
+    if (!codeTextarea.value.trim()) {
+        codeTextarea.value = defaultContent;
+    }
+    
+    updateEditorStatus(`Editing: ${inputFilename.value}`);
+}
+
+function updateEditorStatus(message) {
+    editorStatus.textContent = message;
+}
+
+function getMimeType(fileType) {
+    const mimeTypes = {
+        'json': 'application/json',
+        'txt': 'text/plain',
+        'js': 'application/javascript',
+        'html': 'text/html',
+        'css': 'text/css',
+        'py': 'text/x-python'
+    };
+    return mimeTypes[fileType] || 'text/plain';
+}
+
+async function saveCreatedFile() {
+    const filename = inputFilename.value.trim();
+    const content = codeTextarea.value.trim();
+    const fileType = selectFileType.value;
+    
+    if (!filename || !content) {
+        showError('Filename and content cannot be empty.');
+        return;
+    }
+    
+    // 1. Create a File object from the text content
+    const mimeType = getMimeType(fileType);
+    const file = new File([content], filename, { type: mimeType });
+    
+    // 2. Use the same upload logic as a single file upload
+    showLoadingState(true, `Uploading ${filename}...`);
+    toggleEditorModal(false);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.UPLOAD}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.detail || `Server error for ${file.name}`);
         }
+        
+        const result = await response.json();
+
+        // Success
+        showSuccess(`File "${filename}" created and uploaded successfully!`);
+        await fetchFiles(); // Refresh the file list
+        
+        // Try to navigate to the new file
+        if (result.details) {
+            // This is a JSON file
+            navigateToCategory(result.details.storage_type, 'json'); // 'SQL' or 'NoSQL'
+        } else {
+            // This was another file type (txt, py, etc.)
+            // We'll just go to the main JSON category as a fallback
+            navigateToCategory('JSON', 'json');
+        }
+
+    } catch (error) {
+        console.error("File creation/upload failed:", filename, error);
+        showError(`Upload failed for ${filename}: ${error.message || 'Unknown error'}`);
+        showLoadingState(false); // Hide loading on error
     }
 }
 
@@ -188,8 +327,6 @@ async function uploadFiles() {
 // ===================================
 //  UI RENDERING
 // ===================================
-// In script.js
-
 function filterAndRenderFiles() {
     let filteredFiles = allFilesCache;
     let title = "All Files";
@@ -206,15 +343,12 @@ function filterAndRenderFiles() {
     // 2. Filter by Category Sidebar (e.g., 'Images', 'SQL')
     if (cat !== 'all') {
         if (cat === 'Images' || cat === 'Videos' || cat === 'JSON') {
-            // These are main categories
-            // 'JSON' is special, it contains 'SQL' and 'NoSQL'
             if (cat === 'JSON') {
                  filteredFiles = filteredFiles.filter(f => f.type === 'json');
             } else {
                  filteredFiles = filteredFiles.filter(f => f.category === cat);
             }
         } else if (cat === 'SQL' || cat === 'NoSQL') {
-            // These are sub-categories of JSON
             filteredFiles = filteredFiles.filter(f => f.category === cat);
         }
     }
@@ -222,10 +356,8 @@ function filterAndRenderFiles() {
     // 3. Filter by Extension Sidebar (e.g., 'jpg', 'json')
     if (ext !== 'all') {
         if (cat === 'SQL' || cat === 'NoSQL') {
-             // 'SQL' or 'NoSQL' was clicked, which is a sub-cat
              filteredFiles = filteredFiles.filter(f => f.category === cat && f.extension === 'json');
         } else {
-             // 'jpg', 'png', etc. was clicked
              filteredFiles = filteredFiles.filter(f => f.extension === ext);
         }
     }
@@ -248,9 +380,7 @@ function filterAndRenderFiles() {
     sectionTitle.textContent = title;
     renderFiles(filteredFiles);
 }
-/**
- * NEW: Simple function to update counts on the static list
- */
+
 function updateCategoryCounts(files) {
     // 1. Initialize all known counts to 0
     const counts = {
@@ -327,11 +457,15 @@ function createFileCard(file) {
     fileCard.className = 'file-card';
     const fileName = file.name || file.filename;
     const score = file.score || (file.metadata ? 100 : 80);
-    // JSON files have 'online_url', Media files have 'cloudinary_url'
-    const url = file.cloudinary_url || file.online_url || file.local_url;
+
+    // --- THIS IS THE FIX ---
+    // JSON files have 'content_url', Media files have 'cloudinary_url'
+    const url = file.cloudinary_url || file.content_url || file.local_url;
     
     let previewContent = '';
-    if (file.type === 'image' && url) {
+    // --- THIS IS A FIX ---
+    // Make sure we don't try to render a JSON content_url as an image
+    if (file.type === 'image' && url && !file.content_url) {
         previewContent = `<img src="${url.startsWith('http') ? url : API_BASE_URL + url}" alt="${fileName}" class="file-img" loading="lazy">`;
     } else if (file.type === 'video') {
         previewContent = `<i class="fas fa-file-video"></i>`;
@@ -352,13 +486,14 @@ function createFileCard(file) {
                     <div class="score-bar"><div class="score-fill" style="width: ${score}%"></div></div>
                 </div>
             </div>
-            <div class="file-category">${file.category} / ${file.extension.toUpperCase()}</div>
+            <div classE="file-category">${file.category} / ${file.extension.toUpperCase()}</div>
             <div class="file-timestamp">${formatTimestamp(file.timestamp)}</div>
         </div>
     `;
 
     fileCard.addEventListener('click', () => {
         if (!url) { showError("No preview URL available."); return; }
+        // This logic correctly handles all URL types
         window.open(url.startsWith('http') ? url : `${API_BASE_URL}${url}`, '_blank');
     });
 
@@ -544,7 +679,30 @@ function initApp() {
         showSuccess(`${e.dataTransfer.files.length} file(s) ready to upload.`);
     }, false);
 
-    // --- NEW/UPDATED: Sidebar Click Logic ---
+    // --- ADDED: Text Editor Events ---
+    btnCreateFile.addEventListener('click', () => {
+        toggleModal(false); // Close upload modal
+        setTimeout(() => toggleEditorModal(true), 300); // Open editor with delay
+    });
+    
+    btnCloseEditor.addEventListener('click', () => toggleEditorModal(false));
+    btnCancelEditor.addEventListener('click', () => toggleEditorModal(false));
+    btnSaveFile.addEventListener('click', saveCreatedFile);
+    
+    // Update editor when file type changes
+    selectFileType.addEventListener('change', updateEditorContent);
+    inputFilename.addEventListener('input', () => {
+        updateEditorStatus(`Editing: ${inputFilename.value}`);
+    });
+    
+    // Real-time content updates
+    codeTextarea.addEventListener('input', () => {
+        const lines = codeTextarea.value.split('\n').length;
+        const chars = codeTextarea.value.length;
+        updateEditorStatus(`Editing: ${inputFilename.value} | Lines: ${lines} | Chars: ${chars}`);
+    });
+
+    // --- Sidebar Click Logic ---
     categoryList.addEventListener('click', e => {
         const mainCatEl = e.target.closest('.item-cat-main');
         const subCatEl = e.target.closest('.item-cat-sub');
@@ -603,7 +761,9 @@ function initApp() {
     }, 300));
     
     // Initial Load
-    checkBackendHealth();
+    function initApp() {
+        btnStart.addEventListener('click', showMainApp);
+        checkBackendHealth();
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
